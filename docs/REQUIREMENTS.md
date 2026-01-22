@@ -147,8 +147,8 @@ The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | FR-UI-01 | The system SHALL provide a clean, responsive web interface | Must |
-| FR-UI-02 | The system SHALL support both light and dark themes | Should |
-| FR-UI-03 | The system SHALL persist user preferences (theme, layout) in local storage | Should |
+| FR-UI-02 | The system SHOULD support both light and dark themes | Should |
+| FR-UI-03 | The system SHOULD persist user preferences (theme, layout) in local storage | Should |
 | FR-UI-04 | The system SHOULD support tabbed interface for multiple data sources | Should |
 | FR-UI-05 | The system SHOULD provide a configuration panel for connection settings | Should |
 | FR-UI-06 | The system SHALL display connection status indicators | Must |
@@ -172,8 +172,8 @@ The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 |----|-------------|----------|
 | NFR-PERF-01 | The dashboard SHALL render updates within 100ms of data receipt | Must |
 | NFR-PERF-02 | The system SHALL handle continuous 1 Hz data streams without memory leaks | Must |
-| NFR-PERF-03 | The system SHALL remain responsive with at least 1 hour of buffered data | Should |
-| NFR-PERF-04 | Initial page load SHALL complete within 3 seconds on local network | Should |
+| NFR-PERF-03 | The system SHOULD remain responsive with at least 1 hour of buffered data | Should |
+| NFR-PERF-04 | Initial page load SHOULD complete within 3 seconds on local network | Should |
 
 ### 4.2 Compatibility
 
@@ -181,13 +181,13 @@ The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 |----|-------------|----------|
 | NFR-COMPAT-01 | The system SHALL support modern versions of Chrome, Firefox, and Safari | Must |
 | NFR-COMPAT-02 | The system SHALL run on Linux Computer hardware | Must |
-| NFR-COMPAT-03 | The backend SHALL be deployable using Deno or Node.js runtime | Should |
+| NFR-COMPAT-03 | The backend SHOULD be deployable using Deno or Node.js runtime | Should |
 
 ### 4.3 Security
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| NFR-SEC-01 | The system SHALL support Content Security Policy (CSP) headers | Should |
+| NFR-SEC-01 | The system SHOULD support Content Security Policy (CSP) headers | Should |
 | NFR-SEC-02 | The system SHOULD support HTTPS/WSS for internet-facing deployments | Should |
 | NFR-SEC-03 | The system SHOULD support optional authentication for MQTT connections | Should |
 
@@ -196,7 +196,7 @@ The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | NFR-MAINT-01 | Code SHALL be well-documented with inline comments | Must |
-| NFR-MAINT-02 | The system SHALL use standard, widely-adopted technologies | Should |
+| NFR-MAINT-02 | The system SHOULD use standard, widely-adopted technologies | Should |
 | NFR-MAINT-03 | The system SHOULD include automated tests for critical functionality | Should |
 
 ### 4.5 Deployment
@@ -204,7 +204,7 @@ The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | NFR-DEPLOY-01 | The system SHALL be deployable via simple command-line invocation | Must |
-| NFR-DEPLOY-02 | The system SHOULD include clear installation documentation | Must |
+| NFR-DEPLOY-02 | The system SHALL include clear installation documentation | Must |
 | NFR-DEPLOY-03 | The system MAY support containerized deployment (Docker) | May |
 
 ---
