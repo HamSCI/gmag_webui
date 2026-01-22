@@ -41,8 +41,8 @@ This requirements document covers the web-based dashboard component only. It doe
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  ┌──────────────┐    CAT5/6    ┌──────────────┐                    │
-│  │  Raspberry   │◄────────────►│   Remote     │                    │
-│  │     Pi       │   (up to     │   Board +    │                    │
+│  │    Linux     │◄────────────►│   Remote     │                    │
+│  │   Computer   │   (up to     │   Board +    │                    │
 │  │              │   500 ft)    │   RM3100     │                    │
 │  │  ┌────────┐  │              │   Sensor     │                    │
 │  │  │mag-usb │  │              └──────────────┘                    │
@@ -180,7 +180,7 @@ The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | NFR-COMPAT-01 | The system SHALL support modern versions of Chrome, Firefox, and Safari | Must |
-| NFR-COMPAT-02 | The system SHALL run on Raspberry Pi 3/4 hardware | Must |
+| NFR-COMPAT-02 | The system SHALL run on Linux Computer hardware | Must |
 | NFR-COMPAT-03 | The backend SHALL be deployable using Deno or Node.js runtime | Should |
 
 ### 4.3 Security
@@ -229,7 +229,7 @@ The student developer may choose to:
 ### 5.2 Integration Requirements
 
 - Must integrate with mag-usb JSON Lines output
-- Should work with the standard PSWS Raspberry Pi deployment
+- Should work with the standard PSWS Linux Computer deployment
 - Should be compatible with the TOML configuration approach used by mag-usb
 
 ---
@@ -291,7 +291,7 @@ The dashboard will be considered complete when:
 3. [ ] Users can zoom and pan through historical data
 4. [ ] Data can be exported to at least one standard format (JSONL or CSV)
 5. [ ] The interface works on Chrome and Firefox browsers
-6. [ ] The system runs successfully on a Raspberry Pi 4
+6. [ ] The system runs successfully on a Linux Computer
 7. [ ] Documentation includes installation and usage instructions
 8. [ ] The codebase follows consistent style and includes basic comments
 
