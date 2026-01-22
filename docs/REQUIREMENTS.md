@@ -99,6 +99,14 @@ The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 
 ## 3. Functional Requirements
 
+### Requirement Levels
+
+This document uses the following keywords to indicate requirement levels, as defined in RFC 2119:
+
+- **SHALL** (Priority: Must) - Indicates an absolute requirement. The feature must be implemented for the system to be considered complete.
+- **SHOULD** (Priority: Should) - Indicates a recommended requirement. The feature is highly desirable and should be implemented unless there are compelling reasons not to do so.
+- **MAY** (Priority: May) - Indicates an optional requirement. The feature is truly optional and may be included or omitted at the implementer's discretion.
+
 ### 3.1 Data Ingestion
 
 | ID | Requirement | Priority |
