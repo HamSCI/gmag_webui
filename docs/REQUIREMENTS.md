@@ -1,9 +1,9 @@
 # HamSCI-TAPR Magnetometer Web Dashboard
 ## Requirements Document
 
-**Version:** 0.1 (Draft)
-**Date:** January 2026
-**Status:** Initial Draft for Team Review
+**Version:** 0.2
+**Date:** January 22, 2026
+**Status:** Revised Draft
 
 ---
 
@@ -333,15 +333,16 @@ The following items require team discussion and decisions:
 
 ## Document History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 0.1 | January 2026 | Draft | Initial requirements document |
+| Version | Date | Timestamp | Author | LLM Model | Changes |
+|---------|------|-----------|--------|-----------|---------|
+| 0.2 | January 22, 2026 | 2026-01-22T14:30:00Z | Nathaniel Frissell | Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) | Updated hardware references from Raspberry Pi to Linux Computer; standardized SHALL/SHOULD/MAY usage; added requirement level definitions; removed FR-HD-04; elevated offline capability requirements to Must; updated acceptance criteria to require both CSV and JSONL export |
+| 0.1 | January 14, 2026 | 2026-01-14 | Nathaniel Frissell | Claude (model unknown) | Initial requirements document |
 
 ---
 
 ## Acknowledgments
 
-This requirements document was prepared with assistance from Claude (Anthropic), which helped synthesize information from the HardwareX paper, mag-usb repository, and mag-dash prototype into a structured requirements format.
+This requirements document was prepared with assistance from Claude (Anthropic) using Claude Sonnet 4.5 (model: claude-sonnet-4-5-20250929), which helped synthesize information from the HardwareX paper, mag-usb repository, and mag-dash prototype into a structured requirements format.
 
 ---
 
