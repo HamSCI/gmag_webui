@@ -147,8 +147,7 @@ This document uses the following keywords to indicate requirement levels, as def
 | FR-HD-01 | The system SHALL maintain a scrollable history table of readings | Must |
 | FR-HD-02 | The system SHALL support data export to JSONL format | Must |
 | FR-HD-03 | The system SHOULD support data export to CSV format | Should |
-| FR-HD-04 | The system SHOULD display data in reverse chronological order | Should |
-| FR-HD-05 | The system MAY support configurable data retention limits | May |
+| FR-HD-04 | The system MAY support configurable data retention limits | May |
 
 ### 3.5 User Interface
 
