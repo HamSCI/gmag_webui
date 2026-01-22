@@ -165,9 +165,9 @@ This document uses the following keywords to indicate requirement levels, as def
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| FR-OFF-01 | The system SHOULD function without external CDN dependencies | Should |
-| FR-OFF-02 | The system SHOULD vendor all critical JavaScript libraries locally | Should |
-| FR-OFF-03 | The system SHOULD support local-network-only deployments | Should |
+| FR-OFF-01 | The system SHALL function without external CDN dependencies | Must |
+| FR-OFF-02 | The system SHALL vendor all critical JavaScript libraries locally | Must |
+| FR-OFF-03 | The system SHALL support local-network-only deployments | Must |
 
 ---
 
