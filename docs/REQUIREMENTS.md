@@ -296,7 +296,7 @@ The dashboard will be considered complete when:
 1. [ ] Real-time data can be displayed from a WebSocket connection to mag-usb
 2. [ ] All three magnetic field components are plotted with proper HEZ labeling
 3. [ ] Users can zoom and pan through historical data
-4. [ ] Data can be exported to at least one standard format (JSONL or CSV)
+4. [ ] Data can be exported to both JSONL and CSV formats
 5. [ ] The interface works on Chrome and Firefox browsers
 6. [ ] The system runs successfully on a Linux Computer
 7. [ ] Documentation includes installation and usage instructions
