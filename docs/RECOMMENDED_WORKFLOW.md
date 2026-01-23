@@ -4,9 +4,9 @@ This document provides a recommended workflow and GitHub project management tips
 
 ## Project Overview
 
-**Repository:** https://github.com/HamSCI/gmag_webui
-**Project Board:** https://github.com/orgs/HamSCI/projects/7
-**Requirements Document:** [REQUIREMENTS.md](./REQUIREMENTS.md)
+**Repository:** https://github.com/HamSCI/gmag_webui<br />
+**Project Board:** https://github.com/orgs/HamSCI/projects/7 <br />
+**Requirements Document:** [REQUIREMENTS.md](./REQUIREMENTS.md)<br />
 
 ### Key Deliverables
 
