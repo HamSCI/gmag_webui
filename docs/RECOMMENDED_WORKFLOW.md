@@ -15,6 +15,8 @@ This document provides a recommended workflow and GitHub project management tips
 | MVP Prototype | March 14, 2026 | Working demo for HamSCI Workshop |
 | v1.0 Release | May 1, 2026 | Complete product ready for deployment |
 
+> **What is an MVP?** MVP stands for *Minimum Viable Product*—the simplest version of the product that still delivers core value to users. For this project, the MVP includes real-time data visualization and basic UI, enough to demonstrate the system at the HamSCI Workshop and gather feedback before building out the full feature set.
+
 ---
 
 ## Recommended Workflow
