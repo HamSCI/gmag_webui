@@ -69,13 +69,14 @@ This requirements document covers the web-based dashboard component only. It doe
 The mag-usb software outputs JSON Lines (JSONL) with the following structure:
 
 ```json
-{"ts": "DD Mon YYYY HH:MM:SS", "x": <float>, "y": <float>, "z": <float>}
+{"ts": "DD Mon YYYY HH:MM:SS", "rt": <float> , "x": <float>, "y": <float>, "z": <float>}
 ```
 
 **Field Definitions:**
 | Field | Type | Description |
 |-------|------|-------------|
 | `ts` | string | RFC-2822 formatted timestamp |
+| `rt` | float | remote sensor temperature in deg. C. |
 | `x` | float | X-axis magnetic field (nT) |
 | `y` | float | Y-axis magnetic field (nT) |
 | `z` | float | Z-axis magnetic field (nT) |
