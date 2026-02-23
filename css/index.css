@@ -1,0 +1,288 @@
+/* Variables */
+:root {
+    --col-success: #00c900;
+    --col-danger: #ff3b14;
+    --col-warning: #ffe100;
+    --col-info: #00aeff;
+    --col-btn-inactive: #00bfff;
+    --col-btn-hover: #69dcff;
+    --hbar-grad: linear-gradient(#000000, #606060, #000000);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+header {
+    width: 100%;
+}
+
+header > div {
+    display: flex;
+    flex-direction: row;
+    background: var(--hbar-grad);
+    padding: 8px 12px;
+    color: #fff;
+    align-items: center;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+}
+
+main > div {
+    height: 20%;
+}
+
+a {
+    color: #69daff;
+}
+
+input[type="button"], button {
+    background: var(--col-btn-inactive);
+    color: #ffffff;
+    padding: 4px;
+    border: 0;
+    border-radius: 4px;
+    transition: background .2s ease;
+}
+input[type="button"]:hover, button:hover {
+    background: var(--col-btn-hover);
+}
+
+input[type="button"] {
+    width: 100px;
+}
+
+footer {
+    /* position: fixed; */
+    /* left: 0; */
+    /* bottom: 0; */
+    width: 100%;
+    text-align: center;
+}
+
+footer div {
+    vertical-align: bottom;
+    background: var(--hbar-grad);
+    color: #fff;
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.layout {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr 400px;
+}
+
+/*TODO: At some point we want to make this resizable.*/
+.right-column {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+}
+
+#config {
+    display: flex;
+    flex-direction: column;
+    background-color: #808080;
+    color: #fff;
+}
+
+#sideToggle {
+    margin-right: 12px;
+}
+
+#wordmark {
+    font-size: 16pt;
+    margin-left: 12px;
+    position: relative;
+    top: 2px;
+    left: 20px;
+}
+
+#spreadsheet {
+    overflow-y: auto;
+    height: 350px;
+    font-size: 11pt;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--hbar-grad);
+    color: #fff;
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+td {
+    text-align: center;
+}
+
+/* Alternate row color slightly */
+tr:nth-of-type(2n) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+#status {
+    flex-grow: 3;
+    text-align: right;
+}
+
+#status.success {
+    color: var(--col-success);
+}
+#status.error {
+    color: var(--col-danger);
+}
+#status.wait {
+    color: var(--col-info);
+}
+#status.warn {
+    color: var(--col-warning);
+}
+#status.wait > i {
+    animation: spin 1.5s linear infinite;
+}
+@keyframes spin {
+    from {
+        rotate: 0deg;
+    }
+    to {
+        rotate: 360deg;
+    }
+}
+
+#hostGroup {
+    display: flex;
+    flex-direction: row;
+}
+
+.header {
+    display: flex;
+    flex-direction: row;
+    background-color: #333;
+    color: #fff;
+    padding: 6px;
+}
+
+.header > * {
+    margin-left: 4px;
+    align-self: center;
+}
+
+.header > span {
+    flex-grow: 2;
+}
+
+.settings-group {
+    display: flex;
+    flex-direction: column;
+}
+.settings-group > .group-header {
+    display: flex;
+    flex-direction: row;
+    background-color: #454545;
+    color: #fff;
+    padding: 6px;
+}
+.settings-group > .group-content {
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(0, 0, 0, 0.05);
+    /* padding: 12px; */
+}
+.settings-group > .group-content > * {
+    margin-bottom: 12px;
+}
+
+.settings-subhead {
+    display: flex;
+    flex-direction: row;
+    background-color: #616161;
+    color: #fff;
+    padding: 6px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: row;
+}
+.input-group > * {
+    padding: 4px;
+}
+.input-group > input {
+    /* border-top-right-radius: 0; */
+    /* border-bottom-right-radius: 0; */
+    border-radius: 4px 0 0 4px;
+    border: 0;
+}
+.input-group > button:not(:last-of-type) {
+    border-radius: 0;
+}
+.input-group > button:last-of-type {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.select-group {
+    display: flex;
+    flex-direction: row;
+}
+.select-group > button:not(:first-of-type):not(:last-of-type) {
+    border-radius: 0;
+}
+.select-group > button:first-of-type {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.select-group > button:last-of-type {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+.select-group > button:disabled {
+    background-color: var(--col-success);
+}
+
+.button-group {
+    display: flex;
+    flex-direction: row;
+}
+.button-group > button:not(:first-of-type):not(:last-of-type) {
+    border-radius: 0;
+}
+.button-group > button:first-of-type {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.button-group > button:last-of-type {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.slider-group {
+    display: flex;
+    flex-direction: row;
+}

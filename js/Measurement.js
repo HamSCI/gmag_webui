@@ -1,0 +1,126 @@
+import Vector from "./Vector.js";
+
+/**
+ * An instance of this class represents a measurement reading from a TAPR
+ * ground magnetometer. A measurement contains an XYZ field, a remote
+ * temperature (in Celsius), and a logging timestamp. All properties of an
+ * instance are read-only after initialization.
+ *
+ * The XYZ field is treated as a 3-dimensional vector and can have various
+ * vector operations applied to it or its components.
+ */
+export default class Measurement {
+    #rfc; #xyz; #rt;
+
+    /**
+     * Constructs a new Measurement.
+     * @param {string} ts an RFC-2822 formatted timestamp
+     * @param {number} rt remote temperature
+     * @param {number} x  x component
+     * @param {number} y  y component
+     * @param {number} z  z component
+     */
+    constructor(ts, rt, x, y, z) {
+        this.#rfc = ts;
+        this.#rt = rt;
+        this.#xyz = new Vector(x, y, z);
+    }
+
+    /**
+     * Returns a Date object corresponding to this Measurement's RFC timestamp.
+     * @returns {Date} the Date object corresponding to this Measurement
+     */
+    get ts() {
+        return this.#convertRFC(this.rfc);
+    }
+
+    /**
+     * Returns the original RFC-2822 formatted timestamp of when this
+     * Measurement was taken.
+     * @returns {string} the RFC-2822 timestamp
+     */
+    get rfc() {
+        return this.#rfc;
+    }
+
+    /**
+     * Returns the remote temperature of this Measurement in Celsius.
+     * @returns {number} the remote temperature (in Celsius)
+     */
+    get celsius() {
+        return this.#rt;
+    }
+
+    /**
+     * Returns the remote temperature of this Measurement converted to
+     * Fahrenheit.
+     * @returns {number} the remote temperature in Fahrenheit
+     */
+    get fahrenheit() {
+        return (this.celsius * 1.8) + 32;
+    }
+
+    /**
+     * Returns this Measurement's field vector in XYZ form.
+     * @returns {Vector} the XYZ vector
+     */
+    get XYZ() {
+        return this.#xyz;
+    }
+
+    /**
+     * Converts the field of this Measurement from XYZ to HEZ.
+     * The specific conversions for the field are as follows:
+     * * Z*(-1) &rarr; H
+     * * Y &rarr; E
+     * * X &rarr; Z
+     *
+     * And are returned as a new Vector.
+     * @returns {Vector} the HEZ vector
+     */
+    get HEZ() {
+        return new Vector(-this.XYZ[2], this.XYZ[1], this.XYZ[0]);
+    }
+
+    /**
+     * Returns a CSV-formatted string of this Measurement.
+     * @returns {string} the original data of the Measurement in CSV form
+     */
+    toCSV() {
+        const [x, y, z] = this.#xyz;
+        return `${this.rfc},${this.#rt},${x},${y},${z}`;
+    }
+
+    /**
+     * Formats this Measurement as a JSONL string and returns it.
+     * @returns {string} the JSONL string
+     */
+    toJSONL() {
+        const [x, y, z] = this.#xyz;
+        return `{ "ts": "${this.#rfc}", "rt": ${this.#rt}, "x": ${x}, "y": ${y}, "z": ${z} }`;
+    }
+
+    /**
+     * Converts an RFC timestamp to a native Date object.
+     * @param {string} ts_str a timestamp string formatted according to
+     * RFC-2822 standard
+     * @returns {Date} a Date object of the corresponding timestamp string
+     */
+    #convertRFC(ts_str) {
+        const [day, monName, year, time] = ts_str.split(" ");
+        const month = monName === "Jan" ? "01"
+            : monName === "Feb" ? "02"
+            : monName === "Mar" ? "03"
+            : monName === "Apr" ? "04"
+            : monName === "May" ? "05"
+            : monName === "Jun" ? "06"
+            : monName === "Jul" ? "07"
+            : monName === "Aug" ? "08"
+            : monName === "Sep" ? "09"
+            : monName === "Oct" ? "10"
+            : monName === "Nov" ? "11"
+            : "12"; // monName === "Dec"
+        const timeStr = `${year}-${month}-${day}T${time}.000Z`;
+        return new Date(timeStr);
+    }
+}

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Magnetometer Dash</title>
+        <!--Third-Party Libraries-->
+        <link href="vendor/fontawesome-free-7.1.0-web/css/fontawesome.css" rel="stylesheet" />
+        <link href="vendor/fontawesome-free-7.1.0-web/css/brands.css" rel="stylesheet" />
+        <link href="vendor/fontawesome-free-7.1.0-web/css/solid.css" rel="stylesheet" />
+        <script src="vendor/plotly-3.3.0.min.js"></script>
+        <!--Local Stylesheets-->
+        <link href="css/index.css" rel="stylesheet" />
+    </head>
+    <body>
+        <header>
+            <div>
+                <i id="sideToggle" class="fa-solid fa-xmark"></i>
+                <img src="images/HamSci.png" height="30" />
+                <div id="wordmark" style="font-style: italic;">
+                    Magnetometer Dash
+                </div>
+                <div id="tabber">
+                    <!--Tabbed interface for multiple magnetometers-->
+                </div>
+                <div id="status" class="error">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                    <span>Disconnected</span>
+                </div>
+            </div>
+        </header>
+        <div class="layout">
+            <aside id="config">
+                <div class="header">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Settings</span>
+                </div>
+                <div class="settings-group">
+                    <div class="group-header">
+                        <i class="fa-solid fa-gear"></i>
+                        <span>Data Source</span>
+                        <i class="fa-solid fa-angle-up"></i>
+                    </div>
+                    <div class="group-content">
+                        <!--Set live host-->
+                        <div class="control-group">
+                            <div class="settings-subhead">
+                                <i class="fa-solid fa-computer"></i>
+                                <span>Live Host</span>
+                            </div>
+                            <div class="input-group">
+                                <input type="url" id="host" placeholder="Host URL" />
+                                <button id="saveHost">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                </button>
+                                <button id="pause">
+                                    <i class="fa-solid fa-pause"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <!--Load data from file-->
+                        <div class="control-group">
+                            <div class="settings-subhead">
+                                <i class="fa-solid fa-file-import"></i>
+                                <span>Import Data</span>
+                            </div>
+                            <div class="button-group">
+                                <button id="loadJson">Import JSONL</button>
+                                <button id="loadCsv">Import CSV</button>
+                            </div>
+                        </div>
+                        <!--Need MQTT settings, etc.-->
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="group-header">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Data Postprocessing</span>
+                        <i class="fa-solid fa-angle-up"></i>
+                    </div>
+                    <div class="group-content">
+                        <div class="control-group">
+                            <div class="settings-subhead">
+                                <i class="fa-solid fa-compass"></i>
+                                <span>Coordinate System</span>
+                            </div>
+                            <div id="coordGroup" class="select-group">
+                                <button name="hez" disabled>HEZ</button>
+                                <button name="xyz">XYZ</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="settings-subhead">
+                                <i class="fa-solid fa-up-down-left-right"></i>
+                                <span>Transform Rotation</span>
+                            </div>
+                            <div class="slider-group">
+                                <label for="rotX">X</label>
+                                <input type="range" id="rotX" value="0" min="-270" max="270" step="90" />
+                                <span id="xDelta">0</span>
+                            </div>
+                            <div class="slider-group">
+                                <label for="rotY">Y</label>
+                                <input type="range" id="rotY" value="0" min="-270" max="270" step="90" />
+                                <span id="yDelta">0</span>
+                            </div>
+                            <div class="slider-group">
+                                <label for="rotZ">Z</label>
+                                <input type="range" id="rotZ" value="0" min="-270" max="270" step="90" />
+                                <span id="zDelta">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            <main>
+                <div id="hDiv"></div>
+                <div id="eDiv"></div>
+                <div id="zDiv"></div>
+                <div id="magDiv"></div>
+                <div id="rtDiv"></div>
+            </main>
+            <div class="right-column">
+                <div id="data" class="content-box">
+                    <!--Buttons to export as JSON and CSV-->
+                    <div id="exports" class="header">
+                        <i class="fa-solid fa-table"></i>
+                        <span>Spreadsheet</span>
+                        <input type="button" id="csv" value="Export CSV" />
+                        <input type="button" id="jsonl" value="Export JSONL" />
+                    </div>
+                    <!--Table containing x, y, z, rt, magnitude, etc.-->
+                    <div id="spreadsheet">
+                        <table class="fixed-table">
+                            <thead class="fixed-head">
+                                <th>Date</th>
+                                <th style="color:#ff0">Temp</th>
+                                <th style="color:#f0f">Mag</th>
+                                <th style="color:#f00">H</th>
+                                <th style="color:#32cd32">E</th>
+                                <th style="color:#00a6ff">Z</th>
+                            </thead>
+                            <tbody class="scrolling">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!--
+                    JC: We have some real estate we could use here. We could
+                    add a 3D plot, or maybe some other data analytics.
+                -->
+                <div style="background:#000;color:#fff" class="content-box">
+                    <h3>TBD</h3>
+                </div>
+            </div>
+        </div>
+        <footer>
+            <div>
+                HamSCI &copy; 2026
+                <a href="https://github.com/HamSCI/gmag_webui/tree/main">
+                    <i class="fa-brands fa-github"></i>
+                </a>
+            </div>
+        </footer>
+        <script type="text/javascript" src="js/transit.js"></script>
+        <script type="module" src="js/index.js"></script>
+    </body>
+</html>
