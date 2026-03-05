@@ -76,10 +76,19 @@ export default class Vector {
      * Rotates this Vector on the given axis by the given angle and returns a
      * new Vector.
      * @param axis {"x"|"y"|"z"} the axis label to rotate on ("x", "y", "z")
-     * @param angle {number} the angle (in radians) to rotate this Vector by
-     * @returns {Vector} a new Vector that is rotated
+     * @param angle {number} the angle to rotate this Vector by
+     * @param {boolean} [inRad=true] whether the value for `angle` is given in
+     * radians (default `true`)
+     * @returns {Vector} a new Vector that is rotated according to the given
+     * axis and angle.
      */
-    rotate(axis, angle) {
+    rotate(axis, angle, inRad = true) {
+        if (!inRad) { // in eulers => convert to radians
+            angle *= Math.PI / 180;
+        }
+        // JC: For the given use case, doing it this way instead of hardcoded
+        // axis flipping is a little bit more involved, but it give us more
+        // flexibility.
         const { sin, cos } = Math;
         const [x, y, z] = this;
         let [newX, newY, newZ] = this;

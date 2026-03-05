@@ -18,9 +18,30 @@
                 <div id="wordmark" style="font-style: italic;">
                     Magnetometer Dash
                 </div>
-                <div id="tabber">
-                    <!--Tabbed interface for multiple magnetometers-->
-                </div>
+                <!--Tabbed interface for multiple magnetometers-->
+                <!-- <div id="tabber">
+                    <div id="tabs">
+                        <template id="srcTab">
+                            <div class="tab">
+                                <div class="tab-ico">
+                                    <i class="fa-solid fa-question"></i>
+                                </div>
+                                <span class="tab-name">
+                                    Untitled
+                                </span>
+                                <div class="tab-closer">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div id="addNew" class="new-tab-btn">
+                        <i class="fa-solid fa-plus"></i>
+                        <span class="tooltip">
+                            Add new source
+                        </span>
+                    </div>
+                </div> -->
                 <div id="status" class="error">
                     <i class="fa-solid fa-circle-xmark"></i>
                     <span>Disconnected</span>
@@ -29,10 +50,6 @@
         </header>
         <div class="layout">
             <aside id="config">
-                <div class="header">
-                    <i class="fa-solid fa-gear"></i>
-                    <span>Settings</span>
-                </div>
                 <div class="settings-group">
                     <div class="group-header">
                         <i class="fa-solid fa-gear"></i>
@@ -40,31 +57,34 @@
                         <i class="fa-solid fa-angle-up"></i>
                     </div>
                     <div class="group-content">
-                        <!--Set live host-->
+                        <!--Source Name-->
                         <div class="control-group">
-                            <div class="settings-subhead">
-                                <i class="fa-solid fa-computer"></i>
-                                <span>Live Host</span>
+                            <div class="input-group">
+                                <input type="text" name="srcName" id="srcName" placeholder="Source Name" />
+                                <button id="saveName">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Save
+                                </button>
                             </div>
+                        </div>
+                        <!--WebSocket Host-->
+                        <div class="control-group">
                             <div class="input-group">
                                 <input type="url" id="host" placeholder="Host URL" />
                                 <button id="saveHost">
                                     <i class="fa-solid fa-floppy-disk"></i>
-                                </button>
-                                <button id="pause">
-                                    <i class="fa-solid fa-pause"></i>
+                                    Save
                                 </button>
                             </div>
                         </div>
-                        <!--Load data from file-->
+                        <!--Static File-->
                         <div class="control-group">
-                            <div class="settings-subhead">
-                                <i class="fa-solid fa-file-import"></i>
-                                <span>Import Data</span>
-                            </div>
-                            <div class="button-group">
-                                <button id="loadJson">Import JSONL</button>
-                                <button id="loadCsv">Import CSV</button>
+                            <div class="input-group">
+                                <input type="file" name="logfile" id="logfile" accept=".log" />
+                                <button id="saveLog">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Save
+                                </button>
                             </div>
                         </div>
                         <!--Need MQTT settings, etc.-->
@@ -77,21 +97,21 @@
                         <i class="fa-solid fa-angle-up"></i>
                     </div>
                     <div class="group-content">
+                        <!-- <div class="settings-subhead">
+                            <i class="fa-solid fa-compass"></i>
+                            <span>Coordinate System</span>
+                        </div>
                         <div class="control-group">
-                            <div class="settings-subhead">
-                                <i class="fa-solid fa-compass"></i>
-                                <span>Coordinate System</span>
-                            </div>
                             <div id="coordGroup" class="select-group">
                                 <button name="hez" disabled>HEZ</button>
                                 <button name="xyz">XYZ</button>
                             </div>
+                        </div> -->
+                        <div class="settings-subhead">
+                            <i class="fa-solid fa-up-down-left-right"></i>
+                            <span>Transform Rotation</span>
                         </div>
                         <div class="control-group">
-                            <div class="settings-subhead">
-                                <i class="fa-solid fa-up-down-left-right"></i>
-                                <span>Transform Rotation</span>
-                            </div>
                             <div class="slider-group">
                                 <label for="rotX">X</label>
                                 <input type="range" id="rotX" value="0" min="-270" max="270" step="90" />
@@ -107,6 +127,32 @@
                                 <input type="range" id="rotZ" value="0" min="-270" max="270" step="90" />
                                 <span id="zDelta">0</span>
                             </div>
+                            <button id="saveRot">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="group-header">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Data Visualization</span>
+                        <i class="fa-solid fa-angle-up"></i>
+                    </div>
+                    <div class="group-content">
+                        <div class="settings-subhead">
+                            <i class="fa-solid fa-clock"></i>
+                            <span>Time Window</span>
+                        </div>
+                        <div class="control-group">
+                            <select name="timerange" id="timerange">
+                                <option value="1m">1 Minute</option>
+                                <option value="5m">5 Minutes</option>
+                                <option value="15m">15 Minutes</option>
+                                <option value="1h" selected>1 Hour</option>
+                                <option value="4h">4 Hours</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -120,12 +166,9 @@
             </main>
             <div class="right-column">
                 <div id="data" class="content-box">
-                    <!--Buttons to export as JSON and CSV-->
-                    <div id="exports" class="header">
+                    <div class="header">
                         <i class="fa-solid fa-table"></i>
                         <span>Spreadsheet</span>
-                        <input type="button" id="csv" value="Export CSV" />
-                        <input type="button" id="jsonl" value="Export JSONL" />
                     </div>
                     <!--Table containing x, y, z, rt, magnitude, etc.-->
                     <div id="spreadsheet">

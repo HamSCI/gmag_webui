@@ -21,6 +21,9 @@ export default class Measurement {
      * @param {number} z  z component
      */
     constructor(ts, rt, x, y, z) {
+        if (!this.#validateArgs(ts, rt, x, y, z)) {
+            throw new TypeError("Constructor args are incorrectly typed,");
+        }
         this.#rfc = ts;
         this.#rt = rt;
         this.#xyz = new Vector(x, y, z);
@@ -83,24 +86,6 @@ export default class Measurement {
     }
 
     /**
-     * Returns a CSV-formatted string of this Measurement.
-     * @returns {string} the original data of the Measurement in CSV form
-     */
-    toCSV() {
-        const [x, y, z] = this.#xyz;
-        return `${this.rfc},${this.#rt},${x},${y},${z}`;
-    }
-
-    /**
-     * Formats this Measurement as a JSONL string and returns it.
-     * @returns {string} the JSONL string
-     */
-    toJSONL() {
-        const [x, y, z] = this.#xyz;
-        return `{ "ts": "${this.#rfc}", "rt": ${this.#rt}, "x": ${x}, "y": ${y}, "z": ${z} }`;
-    }
-
-    /**
      * Converts an RFC timestamp to a native Date object.
      * @param {string} ts_str a timestamp string formatted according to
      * RFC-2822 standard
@@ -122,5 +107,13 @@ export default class Measurement {
             : "12"; // monName === "Dec"
         const timeStr = `${year}-${month}-${day}T${time}.000Z`;
         return new Date(timeStr);
+    }
+
+    #validateArgs(ts, rt, x, y, z) {
+        return typeof ts === "string"
+            && typeof rt === "number"
+            && typeof x === "number"
+            && typeof y === "number"
+            && typeof z === "number";
     }
 }

@@ -6,6 +6,8 @@
     --col-info: #00aeff;
     --col-btn-inactive: #00bfff;
     --col-btn-hover: #69dcff;
+    --col-btn-disabled: rgba(0, 125, 166, 0.9);
+    --col-tab-active: #424242;
     --hbar-grad: linear-gradient(#000000, #606060, #000000);
 }
 
@@ -30,9 +32,10 @@ header > div {
     display: flex;
     flex-direction: row;
     background: var(--hbar-grad);
-    padding: 8px 12px;
+    padding: 0px 12px;
     color: #fff;
     align-items: center;
+    height: 45px;
 }
 
 main {
@@ -59,15 +62,24 @@ input[type="button"], button {
 input[type="button"]:hover, button:hover {
     background: var(--col-btn-hover);
 }
+input[type="button"]:disabled, button:disabled {
+    background: var(--col-btn-disabled);
+}
 
 input[type="button"] {
     width: 100px;
 }
 
+input[type="file"] {
+    padding: 0;
+}
+
+input:invalid {
+    border-color: red;
+    border-style: solid;
+}
+
 footer {
-    /* position: fixed; */
-    /* left: 0; */
-    /* bottom: 0; */
     width: 100%;
     text-align: center;
 }
@@ -105,15 +117,14 @@ footer div {
 
 #wordmark {
     font-size: 16pt;
-    margin-left: 12px;
-    position: relative;
-    top: 2px;
-    left: 20px;
+    margin-left: 16px;
+    flex-grow: 1;
 }
 
 #spreadsheet {
     overflow-y: auto;
-    height: 350px;
+    /* height: 350px; */
+    max-height: 350px;
     font-size: 11pt;
 }
 
@@ -122,7 +133,7 @@ table {
     width: 100%;
 }
 
-table thead th {
+thead th {
     position: sticky;
     top: 0;
     background: var(--hbar-grad);
@@ -135,13 +146,16 @@ td {
     text-align: center;
 }
 
+tbody tr:hover {
+    background: #bef;
+}
+
 /* Alternate row color slightly */
 tr:nth-of-type(2n) {
     background-color: rgba(0, 0, 0, 0.05);
 }
 
 #status {
-    flex-grow: 3;
     text-align: right;
 }
 
@@ -167,11 +181,6 @@ tr:nth-of-type(2n) {
     to {
         rotate: 360deg;
     }
-}
-
-#hostGroup {
-    display: flex;
-    flex-direction: row;
 }
 
 .header {
@@ -209,7 +218,14 @@ tr:nth-of-type(2n) {
     /* padding: 12px; */
 }
 .settings-group > .group-content > * {
-    margin-bottom: 12px;
+    /* margin-bottom: 12px; */
+}
+.group-content > .control-group:first-of-type {
+    /* margin-top: 12px; */
+}
+
+.group-header > span {
+    flex-grow: 1;
 }
 
 .settings-subhead {
@@ -223,12 +239,15 @@ tr:nth-of-type(2n) {
 .control-group {
     display: flex;
     flex-direction: column;
-    margin-bottom: 8px;
+    padding: 8px;
+    /* margin-bottom: 8px; */
+    /* margin-left: 8px; */
 }
 
 .input-group {
     display: flex;
     flex-direction: row;
+    font-size: 11pt;
 }
 .input-group > * {
     padding: 4px;
@@ -238,6 +257,11 @@ tr:nth-of-type(2n) {
     /* border-bottom-right-radius: 0; */
     border-radius: 4px 0 0 4px;
     border: 0;
+    font-size: inherit;
+    flex-grow: 1;
+}
+.input-group > input[type="file"] {
+    width: 65%;
 }
 .input-group > button:not(:last-of-type) {
     border-radius: 0;
@@ -285,4 +309,65 @@ tr:nth-of-type(2n) {
 .slider-group {
     display: flex;
     flex-direction: row;
+}
+
+#tabber {
+    display: flex;
+    flex-direction: row;
+    flex-grow: 3;
+    margin: auto 12px 0;
+}
+
+#tabs {
+    max-width: calc(100% - 15px);
+    /* overflow-x: scroll; */
+}
+
+.new-tab-btn {
+    border-color: #fff;
+    border-style: solid;
+    border-width: 3px 3px 0;
+    padding: 6px;
+    transition: .1s;
+}
+.new-tab-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-style: outset;
+}
+.new-tab-btn:active {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-style: inset;
+}
+
+.tooltip {
+    visibility: hidden;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    margin-left: 14px;
+    background-color: transparent;
+    color: transparent;
+    transition: color .1s, background-color .1s;
+}
+
+.new-tab-btn:hover .tooltip {
+    visibility: visible;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+}
+
+.tab {
+    display: flex;
+    flex-direction: row;
+    padding: 6px;
+    border-color: #fff;
+    border-style: solid;
+    border-width: 3px 3px 0;
+    color: #fff;
+}
+.tab.active {
+    border-style: outset;
+    background-color: #545454;
 }
