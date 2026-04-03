@@ -43,8 +43,12 @@ main {
     flex-direction: column;
 }
 
-main > div {
+/* main > div {
     height: 20%;
+} */
+
+#plots {
+    height: 100%;
 }
 
 a {

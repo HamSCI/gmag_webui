@@ -19,7 +19,7 @@ function getContentType(path: string): string {
 }
 
 if (import.meta.main) {
-    const hostname = "0.0.0.0";
+    const hostname = Deno.env.get("HOST") ?? "0.0.0.0";
     const portRaw = Deno.env.get("PORT");
     const port = typeof portRaw !== "undefined"
         ? parseInt(portRaw)

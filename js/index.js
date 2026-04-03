@@ -74,37 +74,14 @@ zDel.textContent = rotZ.value;
 /** @type {Measurement[]} */
 const measurements = [];
 
-function makeLayout(yTitle) {
-    return {
-        template: "plotly_white",
-        margin: { l: 50, r: 0, t: 0, b: 30 },
-        paper_bgcolor: "#ffffff",
-        plot_bgcolor: "#f7f9fb",
-        hovermode: "x unified",
-        xaxis: {
-            title: { text: "Time" },
-            type: "date",
-            autorange: false,
-            showgrid: true,
-            gridcolor: "#e5e7eb",
-            gridwidth: 1,
-            zeroline: false,
-            tickformat: "%H:%M:%S",
-            nticks: 8,
-            // rangeslider: { visible: true },
-        },
-        yaxis: {
-            title: { text: yTitle },
-            showgrid: true,
-            gridcolor: "#e5e7eb",
-            gridwidth: 1,
-            zeroline: false,
-            automargin: true,
-        },
-    };
-}
-
-function makeTrace(markCol) {
+/**
+ *
+ * @param {string} markCol
+ * @param {string} name
+ * @param {number} index
+ * @returns {Plotly.Data}
+ */
+function makeTrace(markCol, name, index = 1) {
     return {
         type: "scattergl",
         mode: "lines",
@@ -113,70 +90,167 @@ function makeTrace(markCol) {
         y: [],
         line: { width: 2 },
         hovertemplate: `%{y:.3f}<extra></extra>`,
+        name: name,
+        xaxis: index === 1 ? "x" : `x${index}`,
+        yaxis: index === 1 ? "y" : `y${index}`,
     };
 }
 
-const plotConfig = {
+/**
+ *
+ * @param {number} anchor
+ * @returns {Partial<Plotly.LayoutAxis>}
+ */
+function configXAxis(anchor) {
+    const xaxis = {
+        type: "date",
+        autorange: false,
+        showgrid: true,
+        gridcolor: "#e5e7eb",
+        gridwidth: 1,
+        zeroline: false,
+        tickformat: "%H:%M:%S",
+        nticks: 8,
+        anchor: anchor === 1 ? "y" : `y${anchor}`,
+        showticklabels: anchor === 5,
+    };
+    if (anchor !== 1) {
+        xaxis.matches = "x";
+    }
+    return xaxis;
+}
+
+// Init the graphs for each component
+const xaxis1 = configXAxis(1);
+// xaxis1.rangeselector = {
+//     buttons: [{
+//         step: "second",
+//         stepmode: "backward",
+//         count: 60,
+//         label: "1min",
+//     }, {
+//         step: "second",
+//         stepmode: "backward",
+//         count: 300,
+//         label: "5min",
+//     }, {
+//         step: "minute",
+//         stepmode: "backward",
+//         count: 15,
+//         label: "15min",
+//     }, {
+//         step: "minute",
+//         stepmode: "backward",
+//         count: 60,
+//         label: "1h"
+//     }, {
+//         step: "all",
+//     }],
+// };
+const xaxis5 = configXAxis(5);
+xaxis5.side - "bottom";
+xaxis5.rangeslider = {
+    visible: true,
+    thickness: 0.05,
+};
+const plotsDiv = document.getElementById("plots");
+const plots = Plotly.newPlot(plotsDiv, [
+    makeTrace("#f00", "H (nT)"),
+    makeTrace("#0f0", "E (nT)", 2),
+    makeTrace("#00f", "Z (nT)", 3),
+    makeTrace("#f0f", "Magnitude (nT)", 4),
+    makeTrace("#ffae00", "Remote (°C)", 5),
+], {
+    template: "plotly_white",
+    margin: { l: 50, r: 0, t: 0, b: 20, pad: 0 },
+    grid: {
+        rows: 5,
+        columns: 1,
+        pattern: "independent",
+        roworder: "top to bottom",
+    },
+    paper_bgcolor: "#fff",
+    plot_bgcolor: "#f7f9fb",
+    hovermode: "x unified",
+    hoversubplots: "all",
+    xaxis: xaxis1,
+    xaxis2: configXAxis(2),
+    xaxis3: configXAxis(3),
+    xaxis4: configXAxis(4),
+    xaxis5: xaxis5,
+    yaxis:  {
+        domain: [0.81, 1.0],
+        anchor: "x",
+    },
+    yaxis2: {
+        domain: [0.61, 0.8],
+        anchor: "x",
+    },
+    yaxis3: {
+        domain: [0.41, 0.6],
+        anchor: "x",
+    },
+    yaxis4: {
+        domain: [0.21, 0.40],
+        anchor: "x",
+    },
+    yaxis5: {
+        domain: [0.1, 0.2],
+        anchor: "x",
+    },
+    legend: {
+        orientation: "h",
+        xanchor: "left",
+        yanchor: "bottom",
+        xref: "paper",
+        yref: "paper",
+        x: 0.5,
+        y: 1.0,
+        width: 1,
+        bgcolor: "transparent",
+    },
+    transition: {
+        duration: 250,
+        easing: "cubic",
+    },
+    uirevision: "true",
+}, {
     responsive: true,
     displaylogo: false,
     modeBarButtonsToRemove: ["lasso2d", "select2d"],
     scrollZoom: true,
-};
-
-// Init the graphs for each component
-const hDiv = document.getElementById("hDiv");
-const eDiv = document.getElementById("eDiv");
-const zDiv = document.getElementById("zDiv");
-const magDiv = document.getElementById("magDiv");
-const rtDiv = document.getElementById("rtDiv");
-
-const hPlot = Plotly.newPlot(hDiv,
-    [makeTrace("#f00")],
-    makeLayout("H (nT)"),
-    plotConfig);
-const ePlot = Plotly.newPlot(eDiv,
-    [makeTrace("#0f0")],
-    makeLayout("E (nT)"),
-    plotConfig);
-const zPlot = Plotly.newPlot(zDiv,
-    [makeTrace("#00f")],
-    makeLayout("Z (nT)"),
-    plotConfig);
-const magPlot = Plotly.newPlot(magDiv,
-    [makeTrace("#f0f")],
-    makeLayout("Mag (nT)"),
-    plotConfig);
-const rtPlot = Plotly.newPlot(rtDiv,
-    [makeTrace("#ffd900")],
-    makeLayout("Remote(°C)"),
-    plotConfig);
+});
+let autofollow = true;
+let updateLock = false;
 
 function addAllTraces() {
-    Plotly.addTraces(hDiv,   makeTrace("#f00"));
-    Plotly.addTraces(eDiv,   makeTrace("#0f0"));
-    Plotly.addTraces(zDiv,   makeTrace("#00f"));
-    Plotly.addTraces(magDiv, makeTrace("#f0f"));
-    Plotly.addTraces(rtDiv,  makeTrace("#ffd900"));
+    Plotly.addTraces(plotsDiv, [
+        makeTrace("#f00", "H (nT)"),
+        makeTrace("#0f0", "E (nT)", 2),
+        makeTrace("#00f", "Z (nT)", 3),
+        makeTrace("#f0f", "Magnitude (nT)", 4),
+        makeTrace("#ffae00", "Remote (°C)", 5),
+    ]);
 }
+
 function deleteAllTraces() {
-    Plotly.deleteTraces(hDiv,   0);
-    Plotly.deleteTraces(eDiv,   0);
-    Plotly.deleteTraces(zDiv,   0);
-    Plotly.deleteTraces(magDiv, 0);
-    Plotly.deleteTraces(rtDiv,  0);
+    Plotly.deleteTraces(plotsDiv, [0, 1, 2, 3, 4]);
 }
 
 function updateCoordGraphs() {
     const { transform: { x: rX, y: rY, z: rZ } } = settings;
-    const vectors = measurements.map(m => settings.inHEZ ? m.HEZ : m.XYZ)
-        .map(v => v.rotate("x", rX, false)
+    const vectors = measurements.map(m =>
+        (settings.inHEZ ? m.HEZ : m.XYZ)
+            .rotate("x", rX, false)
             .rotate("y", rY, false)
             .rotate("z", rZ, false));
-    // Only the coordinate graphs actually change.
-    // The magnitude will remain the same.
-    Plotly.restyle(hDiv, { y: [vectors.map(vec => vec[0])] }, [0]);
-    Plotly.restyle(eDiv, { y: [vectors.map(vec => vec[1])] }, [0]);
-    Plotly.restyle(zDiv, { y: [vectors.map(vec => vec[2])] }, [0]);
+    // Only the coordinate graphs actually change. The magnitude will remain
+    // the same.
+    /** @type {[0, 1, 2]} */
+    const traces = [0, 1, 2];
+    Plotly.restyle(plotsDiv, {
+        y: traces.map(t => vectors.map(v => v[t]))
+    }, traces);
 }
 
 // Toggle sidebar
@@ -197,11 +271,9 @@ sideToggle.addEventListener("click", ev => {
         layout.style.gridTemplateColumns = "1fr 400px";
     }
     // Resize the plots to match the new container.
-    Plotly.Plots.resize(hDiv);
-    Plotly.Plots.resize(eDiv);
-    Plotly.Plots.resize(zDiv);
-    Plotly.Plots.resize(magDiv);
-    Plotly.Plots.resize(rtDiv);
+    updateLock = true;
+    Plotly.Plots.resize(plotsDiv);
+    updateLock = false;
 });
 
 // Convert between XYZ and HEZ
@@ -228,26 +300,29 @@ document.getElementById("saveRot").addEventListener("click", ev => {
     updateCoordGraphs();
 });
 
-function updateRange(graphDiv) {
+function updateRange() {
     const { ts: latest } = measurements[measurements.length - 1];
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
     const latestDiff = new Date(latest.getTime() - (seconds * 1000));
-    Plotly.relayout(graphDiv, {
-        "xaxis.range": [latestDiff, latest],
-    });
+    try {
+        // This keeps throwing a TypeError but it doesn't seem to affect
+        // execution.
+        Plotly.relayout(plotsDiv, {
+            "xaxis.range":  [latestDiff, latest],
+            "xaxis2.range": [latestDiff, latest],
+            "xaxis3.range": [latestDiff, latest],
+            "xaxis4.range": [latestDiff, latest],
+            "xaxis5.range": [latestDiff, latest],
+        });
+    } catch (e) {}
 }
-function syncAllRanges() {
-    updateRange(hDiv);
-    updateRange(eDiv);
-    updateRange(zDiv);
-    updateRange(magDiv);
-    updateRange(rtDiv);
-}
+
 timeSelect.addEventListener("change", ev => {
     const newRange = ev.target.value;
     settings.displayWindow = newRange;
     saveSettings();
-    syncAllRanges();
+    autofollow = true;
+    updateRange();
 });
 
 /**
@@ -261,21 +336,16 @@ function extendAllTraces(measurement) {
         .rotate("y", rY, false)
         .rotate("z", rZ, false);
     const { ts } = measurement;
-    Plotly.extendTraces(hDiv, {
-        x: [[ts]], y: [[dispVec[0]]]
-    }, [0]);
-    Plotly.extendTraces(eDiv, {
-        x: [[ts]], y: [[dispVec[1]]]
-    }, [0]);
-    Plotly.extendTraces(zDiv, {
-        x: [[ts]], y: [[dispVec[2]]]
-    }, [0]);
-    Plotly.extendTraces(magDiv, {
-        x: [[ts]], y: [[parseFloat(dispVec.magnitude.toFixed(3))]]
-    }, [0]);
-    Plotly.extendTraces(rtDiv, {
-        x: [[ts]], y: [[measurement.celsius]]
-    }, [0]);
+    Plotly.extendTraces(plotsDiv, {
+        x: [[ts], [ts], [ts], [ts], [ts]],
+        y: [
+            [dispVec[0]],
+            [dispVec[1]],
+            [dispVec[2]],
+            [parseFloat(dispVec.magnitude.toFixed(3))],
+            [measurement.celsius],
+        ],
+    }, [0, 1, 2, 3, 4]);
 }
 
 /**
@@ -295,23 +365,17 @@ function addSpreadsheetRow(measurement) {
     }).format(measurement.ts);
 
     // Apply coordinate system and transform deltas
-    let dispVector = settings.inHEZ ? measurement.HEZ : measurement.XYZ;
-    if (settings.transform.x) {
-        dispVector = dispVector.rotate("x", settings.transform.x, false);
-    }
-    if (settings.transform.y) {
-        dispVector = dispVector.rotate("y", settings.transform.y, false);
-    }
-    if (settings.transform.z) {
-        dispVector = dispVector.rotate("z", settings.transform.z, false);
-    }
+    const dispVector = (settings.inHEZ ? measurement.HEZ : measurement.XYZ)
+        .rotate("x", settings.transform.x, false)
+        .rotate("y", settings.transform.y, false)
+        .rotate("z", settings.transform.z, false);
 
     // Add the new row to the top of the table.
     document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
         "afterbegin", `
         <tr>
             <td>${date}</td>
-            <td>${measurement.celsius}</td>
+            <td>${measurement.celsius.toFixed(2)}</td>
             <td>${dispVector.magnitude.toFixed(3)}</td>
             <td>${dispVector[0].toFixed(3)}</td>
             <td>${dispVector[1].toFixed(3)}</td>
@@ -321,12 +385,12 @@ function addSpreadsheetRow(measurement) {
 
 /**
  * Callback handler for each magnetometer reading.
- * @param {CustomEvent<MagUsbJson>} event
+ * @param {CustomEvent<MagUsbJson>} ev
  */
-function onMagRead(event) {
+function onMagRead(ev) {
     // Extract the JSON attributes and convert to in-house object. This will
     // allow us to do common operations much easier.
-    const { detail: { ts, rt: tmp, x, y, z } } = event;
+    const { detail: { ts, rt: tmp, x, y, z } } = ev;
     const measurement = new Measurement(ts, tmp, x, y, z);
 
     // A zero reading on rt is a host problem, not a dashboard problem. We
@@ -347,10 +411,29 @@ function onMagRead(event) {
     measurements.push(measurement);
     addSpreadsheetRow(measurement);
     extendAllTraces(measurement);
-    syncAllRanges();
+    if (autofollow) {
+        updateLock = true;
+        updateRange();
+        updateLock = false;
+    }
 }
 
 document.addEventListener("magread", onMagRead);
+plotsDiv.on("plotly_relayout", ev => {
+    if (!updateLock && (
+        "xaxis.range[0]" in ev &&
+        "xaxis.range[1]" in ev
+    )) {
+        autofollow = false;
+        console.log("autofollow disabled");
+    }
+});
+plotsDiv.on("plotly_doubleclick", ev => {
+    autofollow = true;
+    updateLock = true;
+    updateRange();
+    updateLock = false;
+});
 
 // Reset the graphs and clear the spreadsheet
 document.addEventListener("magclose", ev => {
@@ -368,11 +451,13 @@ document.getElementById("saveLog").addEventListener("click", ev => {
         alert("Missing .log file.");
         return;
     }
+    console.log(uploader.files[0].type);
     uploader.files[0].text()
         .then(text => text.trim().split("\n"))
         .then(lines => {
             /** @type {Measurement[]} */
             const logs = [];
+
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 try {
@@ -381,7 +466,8 @@ document.getElementById("saveLog").addEventListener("click", ev => {
                     const m = new Measurement(
                         json.ts, json.rt, json.x, json.y, json.z);
                     logs[i] = m;
-                } catch (e) {
+                } catch (err) {
+                    console.log(err);
                     throw new Error(
                         `Cannot load file. Line ${i+1} is malformed.`);
                 }
@@ -393,36 +479,18 @@ document.getElementById("saveLog").addEventListener("click", ev => {
             measurements.length = 0;
             measurements.push(...logs);
             const times = logs.map(({ ts }) => ts);
-            Plotly.update(hDiv, {
-                x: [times],
-                y: [logs.map(({ HEZ }) => HEZ[0])],
+            Plotly.update(plotsDiv, {
+                x: [times, times, times, times, times],
+                y: [
+                    logs.map(({ HEZ }) => HEZ[0]),
+                    logs.map(({ HEZ }) => HEZ[1]),
+                    logs.map(({ HEZ }) => HEZ[2]),
+                    logs.map(({ HEZ }) => HEZ.magnitude),
+                    logs.map(m => m.celsius),
+                ]
             }, {
-                "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts]
-            }, [0]);
-            Plotly.update(eDiv, {
-                x: [times],
-                y: [logs.map(({ HEZ }) => HEZ[1])],
-            }, {
-                "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts]
-            }, [0]);
-            Plotly.update(zDiv, {
-                x: [times],
-                y: [logs.map(({ HEZ }) => HEZ[2])],
-            }, {
-                "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts]
-            }, [0]);
-            Plotly.update(magDiv, {
-                x: [times],
-                y: [logs.map(({ HEZ }) => HEZ.magnitude)],
-            }, {
-                "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts]
-            }, [0]);
-            Plotly.update(rtDiv, {
-                x: [times],
-                y: [logs.map(m => m.celsius)],
-            }, {
-                "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts]
-            }, [0]);
+                "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts],
+            }, [0, 1, 2, 3, 4])
             // This currently lags the client. Need a different approach!
             // for (const log of logs) {
             //     addSpreadsheetRow(log);
