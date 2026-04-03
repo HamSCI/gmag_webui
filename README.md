@@ -54,3 +54,7 @@ check mag-usb to make sure it is configured correctly.
 
 The dashboard is currently limited to one host at a time. This can be mitigated
 by opening a duplicate dashboard in another tab.
+
+The dashboard will autoscroll with the most recently collected data. You can
+zoom in/pan on specific regions of the plots to disable the autoscroll behavior.
+The behavior can be re-enabled by double clicking on the plots.
