@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Magnetometer Dash</title>
+        <!--Third-Party Libraries-->
+        <link href="vendor/fontawesome-free-7.1.0-web/css/fontawesome.css" rel="stylesheet" />
+        <link href="vendor/fontawesome-free-7.1.0-web/css/brands.css" rel="stylesheet" />
+        <link href="vendor/fontawesome-free-7.1.0-web/css/solid.css" rel="stylesheet" />
+        <script src="vendor/plotly-3.3.0.min.js"></script>
+        <!--Local Stylesheets-->
+        <link href="css/index.css" rel="stylesheet" />
+    </head>
+    <body>
+        <header>
+            <div>
+                <i id="sideToggle" class="fa-solid fa-xmark"></i>
+                <img src="images/HamSci.png" height="30" />
+                <div id="wordmark" style="font-style: italic;">Magnetometer Dash</div>
+                <!--Tabbed interface for multiple magnetometers-->
+                <!-- <div id="tabber">
+                    <div id="tabs">
+                        <template id="srcTab">
+                            <div class="tab">
+                                <div class="tab-ico">
+                                    <i class="fa-solid fa-question"></i>
+                                </div>
+                                <span class="tab-name">
+                                    Untitled
+                                </span>
+                                <div class="tab-closer">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div id="addNew" class="new-tab-btn">
+                        <i class="fa-solid fa-plus"></i>
+                        <span class="tooltip">
+                            Add new source
+                        </span>
+                    </div>
+                </div> -->
+                <div id="status" class="error">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                    <span>Disconnected</span>
+                </div>
+            </div>
+        </header>
+        <div class="layout">
+            <aside id="config">
+                <div class="settings-group">
+                    <div class="group-header">
+                        <i class="fa-solid fa-gear"></i>
+                        <span>Data Source</span>
+                        <i class="fa-solid fa-angle-up"></i>
+                    </div>
+                    <div class="group-content">
+                        <!--Source Name-->
+                        <div class="control-group">
+                            <div class="input-group">
+                                <input type="text" name="srcName" id="srcName" placeholder="Source Name" />
+                                <button id="saveName">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                        <!--WebSocket Host-->
+                        <div class="control-group">
+                            <div class="input-group">
+                                <input type="url" id="host" placeholder="Host URL" />
+                                <button id="saveHost">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                        <!--Static File-->
+                        <div class="control-group">
+                            <div class="input-group">
+                                <input type="file" name="logfile" id="logfile" accept=".log" />
+                                <button id="saveLog">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                        <!--Need MQTT settings, etc.-->
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="group-header">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Data Postprocessing</span>
+                        <i class="fa-solid fa-angle-up"></i>
+                    </div>
+                    <div class="group-content">
+                        <div class="settings-subhead">
+                            <i class="fa-solid fa-compass"></i>
+                            <span>Coordinate System</span>
+                        </div>
+                        <div class="control-group">
+                            <div id="coordGroup" class="select-group">
+                                <button name="hez" disabled>HEZ</button>
+                                <button name="xyz">XYZ</button>
+                            </div>
+                        </div>
+                        <div class="settings-subhead">
+                            <i class="fa-solid fa-up-down-left-right"></i>
+                            <span>Transform Rotation</span>
+                        </div>
+                        <div class="control-group">
+                            <div class="slider-group">
+                                <label for="rotX">X</label>
+                                <input type="range" id="rotX" value="0" min="-270" max="270" step="90" />
+                                <span id="xDelta">0</span>
+                            </div>
+                            <div class="slider-group">
+                                <label for="rotY">Y</label>
+                                <input type="range" id="rotY" value="0" min="-270" max="270" step="90" />
+                                <span id="yDelta">0</span>
+                            </div>
+                            <div class="slider-group">
+                                <label for="rotZ">Z</label>
+                                <input type="range" id="rotZ" value="0" min="-270" max="270" step="90" />
+                                <span id="zDelta">0</span>
+                            </div>
+                            <button id="saveRot">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="group-header">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Data Visualization</span>
+                        <i class="fa-solid fa-angle-up"></i>
+                    </div>
+                    <div class="group-content">
+                        <div class="settings-subhead">
+                            <i class="fa-solid fa-clock"></i>
+                            <span>Time Window</span>
+                        </div>
+                        <div class="control-group">
+                            <select name="timerange" id="timerange">
+                                <option value="1m">1 Minute</option>
+                                <option value="5m">5 Minutes</option>
+                                <option value="15m">15 Minutes</option>
+                                <option value="1h" selected>1 Hour</option>
+                                <option value="4h">4 Hours</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            <main>
+                <!-- <div id="hDiv"></div>
+                <div id="eDiv"></div>
+                <div id="zDiv"></div>
+                <div id="magDiv"></div>
+                <div id="rtDiv"></div> -->
+                <div id="plots"></div>
+            </main>
+            <div class="right-column">
+                <div id="data" class="content-box">
+                    <div class="header">
+                        <i class="fa-solid fa-table"></i>
+                        <span>Spreadsheet</span>
+                    </div>
+                    <!--Table containing x, y, z, rt, magnitude, etc.-->
+                    <div id="spreadsheet">
+                        <table class="fixed-table">
+                            <thead class="fixed-head">
+                                <th>Date</th>
+                                <th style="color:#ff0">Temp</th>
+                                <th style="color:#f0f">Mag</th>
+                                <th style="color:#f00">H</th>
+                                <th style="color:#32cd32">E</th>
+                                <th style="color:#00a6ff">Z</th>
+                            </thead>
+                            <tbody class="scrolling">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!--
+                    JC: We have some real estate we could use here. We could
+                    add a 3D plot, or maybe some other data analytics.
+                -->
+                <div style="background:#000;color:#fff" class="content-box">
+                    <h3>TBD</h3>
+                </div>
+            </div>
+        </div>
+        <footer>
+            <div>
+                HamSCI &copy; 2026
+                <a href="https://github.com/HamSCI/gmag_webui/tree/main">
+                    <i class="fa-brands fa-github"></i>
+                </a>
+            </div>
+        </footer>
+        <script type="text/javascript" src="js/transit.js"></script>
+        <script type="module" src="js/index.js"></script>
+    </body>
+</html>
