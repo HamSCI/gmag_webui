@@ -19,25 +19,64 @@ This repository is designed to be used alongside the HamSCI ground magnetometer.
 Instructions for setting up the magnetometer are available
 [here](https://hamsci.org/mag_install).
 
-An additional computer running Linux is required to connect to the magnetometer.
-Ubuntu is recommended, but other distributions should work just fine. Raspberry
-Pis are unsupported.
+An additional computer running Linux or macOS is required to host the
+magnetometer.
+* If using Linux, Ubuntu is recommended, but other distributions should also
+  work.
+* If using macOS, Docker Desktop is required to run mag-usb.
+* Raspberry Pis and Windows are unsupported.
 
 ### Software
 
-Mag-usb must be installed on the host machine with WebSocket mode enabled. The
-repository can be found [here](https://github.com/wittend/mag-usb).
+[Mag-usb](https://github.com/wittend/mag-usb) must be installed on the host
+machine with WebSocket mode enabled.
 
-[Deno](https://deno.com/) is required for the backend.
+If the host is running a Linux distribution, clone mag-usb and build with
+cmake:
+
+```bash
+git clone https://github.com/wittend/mag-usb
+cd mag-usb
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_WEBSOCKET=ON
+cmake --build build --target mag-usb
+cd src
+./../build/mag-usb
+```
+
+If the host is running macOS, use docker compose to create a container:
+
+```bash
+# Replace /dev/cu.usbmodem14101 with your device name
+socat -d -d TCP-LISTEN:1234,reuseaddr,fork FILE:/dev/cu.usbmodem14101,raw,echo=0 &
+docker compose run -it --rm -p 8765:8765 backend
+
+# Inside the Docker container
+socat PTY,link=/dev/ttyACM0,raw,echo=0 TCP:host.docker.internal:${HW_PORT} &
+cd mag-usb/src
+./../build/mag-usb
+```
+
+See [this page](/docs/macOS_Setup.md) for more details on setting up this
+project on macOS.
+
+[Deno](https://deno.com/) is used to serve the dashboard. Installing Deno is
+not required.
 
 ## Usage
 
 In the vendor folder, unzip the archive containing fontawesome.
 
-In a CLI, navigate to the project's root directory and run the command:
+In a CLI, navigate to the project's root directory. If Deno is installed, run
+the command directly:
 
 ```bash
 deno task dev
+```
+
+Otherwise, use `docker compose` to create a container:
+
+```bash
+docker compose run --rm frontend
 ```
 
 By default, the dashboard will be available at `localhost:8000`. However, the
