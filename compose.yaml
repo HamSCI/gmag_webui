@@ -26,5 +26,5 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - ./config.toml:/app/mag-usb/src/config.toml
+      - ./config.toml:/etc/mag-usb/config.toml
       - ./logs:/app/mag-usb/logs

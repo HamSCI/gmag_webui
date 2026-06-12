@@ -17,10 +17,10 @@ grid_square = "EM38uw"
 
 [output]
 # Write logfiles to log_output_path..
-write_logs = false
+write_logs = true
 # create logfiles in this location.
-log_output_path = "./logs"
-# create this location if it does not esist.
+log_output_path = "/app/mag-usb/logs"
+# create this location if it does not exist.
 create_log_path_if_empty = true
 
 # Use named pipes for IPC.

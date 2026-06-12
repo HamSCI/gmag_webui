@@ -14,7 +14,7 @@ WORKDIR /app
 RUN git clone https://github.com/wittend/mag-usb
 
 COPY logs /app/mag-usb/logs
-COPY config.toml /app/mag-usb/src/config.toml
+COPY config.toml /etc/mag-usb/
 
 RUN cd mag-usb && \
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_WEBSOCKET=ON && \
