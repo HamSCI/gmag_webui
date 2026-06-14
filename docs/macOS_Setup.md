@@ -1,6 +1,10 @@
 # Setting up the HamSCI Ground Magnetometer on macOS
 
-This guide will help you set up and run all components of the ground magnetometer on macOS using Docker.
+This guide will help you set up and run all components of the ground
+magnetometer (mag-usb and the web dashboard) on macOS using Docker.
+
+The guide is intended for macOS users who want to run the complete magnetometer
+suite, but do not have a separate Linux computer to act as a host.
 
 Running the project on macOS has the advantage of being able to host the
 magnetometer and serve the web dashboard on a single computer.
@@ -40,21 +44,17 @@ magnetometer and serve the web dashboard on a single computer.
 3. In a separate Terminal, navigate to this project's root directory and run
    `docker compose up -d` to start a shared container. The dashboard is
    accessible on `localhost:8000`.
-4. In the same Terminal, run `docker ps` to get all containers running on your
-   computer. Look for the image "gmag_webui-backend" and copy its container ID.
-   This is the container running mag-usb.
-5. Substituting **\<ID>** for the container ID in the last step, run the command
-   `docker exec -it <ID> bash` to enter the container's shell.
-6. Inside the container, use socat to establish a virtual bridge between the
+4. Run `docker compose exec backend bash` to enter the virtual host's shell.
+5. Inside the container, use socat to establish a virtual bridge between the
    container and your physical adapter:
    ```bash
    socat PTY,link=/dev/ttyACM0,raw,echo=0 TCP:host.docker.internal:${HW_PORT} &
    ```
-7. Run this command to start mag-usb as a background process:
+6. Run this command to start mag-usb as a background process:
    ```bash
-   cd mag-usb/src && ./../build/mag-usb &
+   ./mag-usb/build/mag-usb &
    ```
-8. If mag-usb is running properly, you can `exit` the shell. mag-usb will
+7. If mag-usb is running properly, you can `exit` the shell. mag-usb will
    continue to run in the background until the container is stopped.
-9. In the web dashboard, connect to the magnetometer at `ws://localhost:8765`.
+8. In the web dashboard, connect to the magnetometer at `ws://localhost:8765`.
    If set up correctly, the dashboard should immediately connect to it.

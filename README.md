@@ -31,52 +31,18 @@ magnetometer.
 [Mag-usb](https://github.com/wittend/mag-usb) must be installed on the host
 machine with WebSocket mode enabled.
 
-If the host is running a Linux distribution, clone mag-usb and build with
-cmake:
-
-```bash
-git clone https://github.com/wittend/mag-usb
-cd mag-usb
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_WEBSOCKET=ON
-cmake --build build --target mag-usb
-cd src
-./../build/mag-usb
-```
-
-If the host is running macOS, use docker compose to create a container:
-
-```bash
-# Replace /dev/cu.usbmodem14101 with your device name
-socat -d -d TCP-LISTEN:1234,reuseaddr,fork FILE:/dev/cu.usbmodem14101,raw,echo=0 &
-docker compose run -it --rm -p 8765:8765 backend
-
-# Inside the Docker container
-socat PTY,link=/dev/ttyACM0,raw,echo=0 TCP:host.docker.internal:${HW_PORT} &
-cd mag-usb/src
-./../build/mag-usb
-```
-
-See [this page](/docs/macOS_Setup.md) for more details on setting up this
-project on macOS.
-
-[Deno](https://deno.com/) is used to serve the dashboard. Installing Deno is
-not required.
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) is preferred
+for running the project. The dashboard is served via a Deno container.
 
 ## Usage
 
 In the vendor folder, unzip the archive containing fontawesome.
 
-In a CLI, navigate to the project's root directory. If Deno is installed, run
-the command directly:
+In a CLI, navigate to the project's root directory. Use `docker compose` to
+create a container:
 
 ```bash
-deno task dev
-```
-
-Otherwise, use `docker compose` to create a container:
-
-```bash
-docker compose run --rm frontend
+docker compose up -d frontend
 ```
 
 By default, the dashboard will be available at `localhost:8000`. However, the
