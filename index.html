@@ -13,7 +13,7 @@
     <body>
         <header>
             <div>
-                <i id="sideToggle" class="fa-solid fa-xmark"></i>
+                <i id="sideToggle" class="fa-solid fa-bars"></i>
                 <img src="images/HamSci.png" height="30" />
                 <div id="wordmark" style="font-style: italic;">Magnetometer Dash</div>
                 <!--Tabbed interface for multiple magnetometers-->
@@ -95,7 +95,7 @@
                         <i class="fa-solid fa-angle-up"></i>
                     </div>
                     <div class="group-content">
-                        <div class="settings-subhead">
+                        <!-- <div class="settings-subhead">
                             <i class="fa-solid fa-compass"></i>
                             <span>Coordinate System</span>
                         </div>
@@ -104,7 +104,7 @@
                                 <button name="hez" disabled>HEZ</button>
                                 <button name="xyz">XYZ</button>
                             </div>
-                        </div>
+                        </div> -->
                         <div class="settings-subhead">
                             <i class="fa-solid fa-up-down-left-right"></i>
                             <span>Transform Rotation</span>
@@ -149,18 +149,13 @@
                                 <option value="5m">5 Minutes</option>
                                 <option value="15m">15 Minutes</option>
                                 <option value="1h" selected>1 Hour</option>
-                                <option value="4h">4 Hours</option>
+                                <!-- <option value="4h">4 Hours</option> -->
                             </select>
                         </div>
                     </div>
                 </div>
             </aside>
             <main>
-                <!-- <div id="hDiv"></div>
-                <div id="eDiv"></div>
-                <div id="zDiv"></div>
-                <div id="magDiv"></div>
-                <div id="rtDiv"></div> -->
                 <div id="plots"></div>
             </main>
             <div class="right-column">
@@ -174,23 +169,23 @@
                         <table class="fixed-table">
                             <thead class="fixed-head">
                                 <th>Date</th>
-                                <th style="color:#ff0">Temp</th>
-                                <th style="color:#f0f">Mag</th>
                                 <th style="color:#f00">H</th>
                                 <th style="color:#32cd32">E</th>
                                 <th style="color:#00a6ff">Z</th>
+                                <th style="color:#f0f">Mag</th>
+                                <th style="color:#ff0">Temp</th>
                             </thead>
                             <tbody class="scrolling">
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <!--
-                    JC: We have some real estate we could use here. We could
-                    add a 3D plot, or maybe some other data analytics.
-                -->
-                <div style="background:#000;color:#fff" class="content-box">
-                    <h3>TBD</h3>
+                <div id="trends" class="content-box">
+                    <div class="header">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                        <span>Trends</span>
+                    </div>
+                    <div id="sparklines"></div>
                 </div>
             </div>
         </div>

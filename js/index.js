@@ -1,13 +1,19 @@
 /// <reference path="./index.d.ts" />
 import Measurement from "./Measurement.js";
+import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
+import plotsInit from "./data/plots.json" with { type: "json" };
+import slInit from "./data/sparklines.json" with { type: "json" };
 
 const timeRanges = {
     "1m": 60,
     "5m": 300,
     "15m": 900,
     "1h": 3600,
-    "4h": 14400,
+    // "4h": 14400,
 };
+const PLOTS_BUF_MAX = 3600; // 1 hour max buffer
+const SPARK_BUF_MAX = 100;
+const SL_BUCKET_MAX = 10;
 
 // Check for previously saved settings. Init defaults if not found.
 if (window.localStorage.getItem("settings") === null) {
@@ -75,175 +81,41 @@ zDel.textContent = rotZ.value;
 const measurements = [];
 
 /**
- *
- * @param {string} markCol
- * @param {string} name
- * @param {number} index
- * @returns {Plotly.Data}
+ * @type {Measurement[]}
+ * For performance, we'll only keep up to 100 samples at a time.
  */
-function makeTrace(markCol, name, index = 1) {
-    return {
-        type: "scattergl",
-        mode: "lines",
-        marker: { color: markCol },
-        x: [],
-        y: [],
-        line: { width: 2 },
-        hovertemplate: `%{y:.3f}<extra></extra>`,
-        name: name,
-        xaxis: index === 1 ? "x" : `x${index}`,
-        yaxis: index === 1 ? "y" : `y${index}`,
-    };
-}
-
+const sparklines = [];
 /**
- *
- * @param {number} anchor
- * @returns {Partial<Plotly.LayoutAxis>}
+ * @type {Measurement[]}
+ * This gets cleared every 10 samples.
  */
-function configXAxis(anchor) {
-    const xaxis = {
-        type: "date",
-        autorange: false,
-        showgrid: true,
-        gridcolor: "#e5e7eb",
-        gridwidth: 1,
-        zeroline: false,
-        tickformat: "%H:%M:%S",
-        nticks: 8,
-        anchor: anchor === 1 ? "y" : `y${anchor}`,
-        showticklabels: anchor === 5,
-    };
-    if (anchor !== 1) {
-        xaxis.matches = "x";
-    }
-    return xaxis;
-}
+const sBucket = [];
 
-// Init the graphs for each component
-const xaxis1 = configXAxis(1);
-// xaxis1.rangeselector = {
-//     buttons: [{
-//         step: "second",
-//         stepmode: "backward",
-//         count: 60,
-//         label: "1min",
-//     }, {
-//         step: "second",
-//         stepmode: "backward",
-//         count: 300,
-//         label: "5min",
-//     }, {
-//         step: "minute",
-//         stepmode: "backward",
-//         count: 15,
-//         label: "15min",
-//     }, {
-//         step: "minute",
-//         stepmode: "backward",
-//         count: 60,
-//         label: "1h"
-//     }, {
-//         step: "all",
-//     }],
-// };
-const xaxis5 = configXAxis(5);
-xaxis5.side - "bottom";
-xaxis5.rangeslider = {
-    visible: true,
-    thickness: 0.05,
-};
 const plotsDiv = document.getElementById("plots");
-const plots = Plotly.newPlot(plotsDiv, [
-    makeTrace("#f00", "H (nT)"),
-    makeTrace("#0f0", "E (nT)", 2),
-    makeTrace("#00f", "Z (nT)", 3),
-    makeTrace("#f0f", "Magnitude (nT)", 4),
-    makeTrace("#ffae00", "Remote (°C)", 5),
-], {
-    template: "plotly_white",
-    margin: { l: 50, r: 0, t: 0, b: 20, pad: 0 },
-    grid: {
-        rows: 5,
-        columns: 1,
-        pattern: "independent",
-        roworder: "top to bottom",
-    },
-    paper_bgcolor: "#fff",
-    plot_bgcolor: "#f7f9fb",
-    hovermode: "x unified",
-    hoversubplots: "all",
-    xaxis: xaxis1,
-    xaxis2: configXAxis(2),
-    xaxis3: configXAxis(3),
-    xaxis4: configXAxis(4),
-    xaxis5: xaxis5,
-    yaxis:  {
-        domain: [0.81, 1.0],
-        anchor: "x",
-    },
-    yaxis2: {
-        domain: [0.61, 0.8],
-        anchor: "x",
-    },
-    yaxis3: {
-        domain: [0.41, 0.6],
-        anchor: "x",
-    },
-    yaxis4: {
-        domain: [0.21, 0.40],
-        anchor: "x",
-    },
-    yaxis5: {
-        domain: [0.1, 0.2],
-        anchor: "x",
-    },
-    legend: {
-        orientation: "h",
-        xanchor: "left",
-        yanchor: "bottom",
-        xref: "paper",
-        yref: "paper",
-        x: 0.5,
-        y: 1.0,
-        width: 1,
-        bgcolor: "transparent",
-    },
-    transition: {
-        duration: 250,
-        easing: "cubic",
-    },
-    uirevision: "true",
-}, {
-    responsive: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ["lasso2d", "select2d"],
-    scrollZoom: true,
-});
+Plotly.newPlot(plotsDiv, plotsInit.traces, plotsInit.layout, plotsInit.config);
+
+const sparkDiv = document.getElementById("sparklines");
+Plotly.newPlot(sparkDiv, slInit.traces, slInit.layout, slInit.config);
+
 let autofollow = true;
 let updateLock = false;
 
 function addAllTraces() {
-    Plotly.addTraces(plotsDiv, [
-        makeTrace("#f00", "H (nT)"),
-        makeTrace("#0f0", "E (nT)", 2),
-        makeTrace("#00f", "Z (nT)", 3),
-        makeTrace("#f0f", "Magnitude (nT)", 4),
-        makeTrace("#ffae00", "Remote (°C)", 5),
-    ]);
+    Plotly.addTraces(plotsDiv, mainTraces);
+    Plotly.addTraces(sparkDiv, slTraces);
 }
 
 function deleteAllTraces() {
     Plotly.deleteTraces(plotsDiv, [0, 1, 2, 3, 4]);
+    Plotly.deleteTraces(sparkDiv, [0, 1, 2, 3, 4]);
 }
 
 function updateCoordGraphs() {
     const { transform: { x: rX, y: rY, z: rZ } } = settings;
-    const vectors = measurements.map(m =>
-        (settings.inHEZ ? m.HEZ : m.XYZ)
-            .rotate("x", rX, false)
-            .rotate("y", rY, false)
-            .rotate("z", rZ, false));
+    const vectors = measurements.map(m => m.HEZ
+        .rotate("x", rX, false)
+        .rotate("y", rY, false)
+        .rotate("z", rZ, false));
     // Only the coordinate graphs actually change. The magnitude will remain
     // the same.
     /** @type {[0, 1, 2]} */
@@ -256,30 +128,18 @@ function updateCoordGraphs() {
 // Toggle sidebar
 const sideToggle = document.getElementById("sideToggle");
 sideToggle.addEventListener("click", ev => {
-    sideToggle.classList.toggle("fa-bars");
-    sideToggle.classList.toggle("fa-xmark");
-
     const sidebar = document.getElementById("config");
-    const [layout] = document.getElementsByClassName("layout");
 
     // Adjust the layout to account for missing element.
     if (sideToggle.classList.contains("fa-xmark")) {
-        sidebar.style.display = "block";
-        layout.style.gridTemplateColumns = "300px 1fr 400px";
+        sidebar.style.transform = "translateX(-100%)";
     } else {
-        sidebar.style.display = "none";
-        layout.style.gridTemplateColumns = "1fr 400px";
+        sidebar.style.transform = "translateX(0)";
     }
-    // Resize the plots to match the new container.
-    updateLock = true;
-    Plotly.Plots.resize(plotsDiv);
-    updateLock = false;
-});
 
-// Convert between XYZ and HEZ
-// document.getElementById("inHEZ").addEventListener("click", function(ev) {
-//     inHEZ = this.checked;
-// });
+    sideToggle.classList.toggle("fa-bars");
+    sideToggle.classList.toggle("fa-xmark");
+});
 
 // Set rotation deltas
 // TODO: Add some indication that the rotation isn't saved?
@@ -331,7 +191,8 @@ timeSelect.addEventListener("change", ev => {
  */
 function extendAllTraces(measurement) {
     const { transform: { x: rX, y: rY, z: rZ } } = settings;
-    const dispVec = (settings.inHEZ ? measurement.HEZ : measurement.XYZ)
+
+    const dispVec = measurement.HEZ
         .rotate("x", rX, false)
         .rotate("y", rY, false)
         .rotate("z", rZ, false);
@@ -346,6 +207,14 @@ function extendAllTraces(measurement) {
             [measurement.celsius],
         ],
     }, [0, 1, 2, 3, 4]);
+}
+
+function updateSparks() {
+    while (sparklines.length > 100) {
+        sparklines.shift();
+    }
+    const newSlTraces = buildSparklineTraces(sparklines);
+    Plotly.react(sparkDiv, newSlTraces, slInit.layout, slInit.config);
 }
 
 /**
@@ -365,7 +234,7 @@ function addSpreadsheetRow(measurement) {
     }).format(measurement.ts);
 
     // Apply coordinate system and transform deltas
-    const dispVector = (settings.inHEZ ? measurement.HEZ : measurement.XYZ)
+    const dispVector = measurement.HEZ
         .rotate("x", settings.transform.x, false)
         .rotate("y", settings.transform.y, false)
         .rotate("z", settings.transform.z, false);
@@ -375,12 +244,13 @@ function addSpreadsheetRow(measurement) {
         "afterbegin", `
         <tr>
             <td>${date}</td>
-            <td>${measurement.celsius.toFixed(2)}</td>
-            <td>${dispVector.magnitude.toFixed(3)}</td>
             <td>${dispVector[0].toFixed(3)}</td>
             <td>${dispVector[1].toFixed(3)}</td>
             <td>${dispVector[2].toFixed(3)}</td>
+            <td>${dispVector.magnitude.toFixed(3)}</td>
+            <td>${measurement.celsius.toFixed(2)}</td>
         </tr>`);
+    // TODO: Remove last row once we're at max buffer size?
 }
 
 /**
@@ -392,6 +262,9 @@ function onMagRead(ev) {
     // allow us to do common operations much easier.
     const { detail: { ts, rt: tmp, x, y, z } } = ev;
     const measurement = new Measurement(ts, tmp, x, y, z);
+    // The table is currently unreadable with the raw values. This scale is
+    // just temporary until we reach a better solution.
+    // measurement.setScale(1/1000);
 
     // A zero reading on rt is a host problem, not a dashboard problem. We
     // should alert the client of the problem and then kill the connection.
@@ -409,8 +282,18 @@ function onMagRead(ev) {
     }
 
     measurements.push(measurement);
+    while (measurements.length >= PLOTS_BUF_MAX) {
+        measurements.shift();
+    }
+    sBucket.push(measurement);
     addSpreadsheetRow(measurement);
     extendAllTraces(measurement);
+    if (sBucket.length >= SL_BUCKET_MAX) {
+        const bAgg = reduceBucket(sBucket);
+        sBucket.length = 0;
+        sparklines.push(bAgg);
+        updateSparks();
+    }
     if (autofollow) {
         updateLock = true;
         updateRange();
@@ -457,7 +340,6 @@ document.getElementById("saveLog").addEventListener("click", ev => {
         .then(lines => {
             /** @type {Measurement[]} */
             const logs = [];
-
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 try {
@@ -474,8 +356,7 @@ document.getElementById("saveLog").addEventListener("click", ev => {
             }
             console.log(`Loaded ${uploader.files[0].name}`);
             return logs;
-        })
-        .then(logs => {
+        }).then(logs => {
             measurements.length = 0;
             measurements.push(...logs);
             const times = logs.map(({ ts }) => ts);
@@ -495,8 +376,7 @@ document.getElementById("saveLog").addEventListener("click", ev => {
             // for (const log of logs) {
             //     addSpreadsheetRow(log);
             // }
-        })
-        .catch(err => {
+        }).catch(err => {
             console.error(err);
             alert(err.message);
         });

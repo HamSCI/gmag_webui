@@ -13,7 +13,9 @@ let ws = null;
 // Auto-init if a previous host is stored
 if (cookie.startsWith("host")) {
     const hostUrl = cookie.substring(cookie.indexOf("=") + 1);
-    initWS(hostUrl);
+    if (hostUrl.length) {
+        initWS(hostUrl);
+    }
 }
 
 document.getElementById("saveHost").addEventListener("click", ev => {
@@ -21,6 +23,7 @@ document.getElementById("saveHost").addEventListener("click", ev => {
     if (host.value.trim() === "" && ws instanceof WebSocket) {
         ws.close();
         ws = null;
+        document.cookie = "";
         return;
     } else if (host.value) {
         // If a connection exists, close and free.

@@ -1,0 +1,198 @@
+{
+    "traces": [
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5
+            },
+            "xaxis": "x",
+            "yaxis": "y"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#0f0"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5
+            },
+            "xaxis": "x2",
+            "yaxis": "y2"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#00f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5
+            },
+            "xaxis": "x3",
+            "yaxis": "y3"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f0f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5
+            },
+            "xaxis": "x4",
+            "yaxis": "y4"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#ffae00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5
+            },
+            "xaxis": "x5",
+            "yaxis": "y5"
+        }
+    ],
+    "layout": {
+        "template": "plotly_white",
+        "margin": {
+            "l": 0,
+            "r": 0,
+            "t": 0,
+            "b": 0,
+            "pad": 0
+        },
+        "grid": {
+            "rows": 5,
+            "columns": 1,
+            "pattern": "independent",
+            "roworder": "top to bottom"
+        },
+        "height": 200,
+        "showlegend": false,
+        "xaxis": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "nticks": 8,
+            "anchor": "y",
+            "showticklabels": false,
+            "showline": false,
+            "ticks": ""
+        },
+        "xaxis2": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "nticks": 8,
+            "anchor": "y2",
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "matches": "x"
+        },
+        "xaxis3": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "nticks": 8,
+            "anchor": "y3",
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "matches": "x"
+        },
+        "xaxis4": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "nticks": 8,
+            "anchor": "y4",
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "matches": "x"
+        },
+        "xaxis5": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "nticks": 8,
+            "anchor": "y5",
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "matches": "x"
+        },
+        "yaxis": {
+            "domain": [
+                0.81,
+                1.0
+            ],
+            "anchor": "x",
+            "showgrid": false
+        },
+        "yaxis2": {
+            "domain": [
+                0.61,
+                0.8
+            ],
+            "anchor": "x",
+            "showgrid": false
+        },
+        "yaxis3": {
+            "domain": [
+                0.41,
+                0.6
+            ],
+            "anchor": "x",
+            "showgrid": false
+        },
+        "yaxis4": {
+            "domain": [
+                0.21,
+                0.4
+            ],
+            "anchor": "x",
+            "showgrid": false
+        },
+        "yaxis5": {
+            "domain": [
+                0.00,
+                0.2
+            ],
+            "anchor": "x",
+            "showgrid": false
+        }
+    },
+    "config": {
+        "responsive": true,
+        "staticPlot": true,
+        "displaylogo": false,
+        "displayModeBar": false,
+        "scrollZoom": false
+    }
+}

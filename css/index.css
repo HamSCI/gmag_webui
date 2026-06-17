@@ -99,20 +99,29 @@ footer div {
 .layout {
     flex: 1;
     display: grid;
-    grid-template-columns: 300px 1fr 400px;
+    /* grid-template-columns: 300px 1fr 400px; */
+    grid-template-columns: 1fr 400px;
 }
 
 /*TODO: At some point we want to make this resizable.*/
 .right-column {
     display: grid;
-    grid-template-rows: 1fr 1fr;
+    grid-template-rows: 70% 30%;
 }
 
 #config {
+    height: 100%;
+    width: 300px;
+    position: fixed;
+    z-index: 1;
+    transform: translateX(-100%);
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #808080;
+    background-color: #616161;
     color: #fff;
+    opacity: 0.8;
+    transition: transform 0.3s ease;
 }
 
 #sideToggle {
@@ -211,21 +220,14 @@ tr:nth-of-type(2n) {
 .settings-group > .group-header {
     display: flex;
     flex-direction: row;
-    background-color: #454545;
+    background-color: #383838;
     color: #fff;
     padding: 6px;
 }
 .settings-group > .group-content {
     display: flex;
     flex-direction: column;
-    background-color: rgba(0, 0, 0, 0.05);
     /* padding: 12px; */
-}
-.settings-group > .group-content > * {
-    /* margin-bottom: 12px; */
-}
-.group-content > .control-group:first-of-type {
-    /* margin-top: 12px; */
 }
 
 .group-header > span {
@@ -235,7 +237,7 @@ tr:nth-of-type(2n) {
 .settings-subhead {
     display: flex;
     flex-direction: row;
-    background-color: #616161;
+    background-color: #4f4f4f;
     color: #fff;
     padding: 6px;
 }
@@ -244,8 +246,6 @@ tr:nth-of-type(2n) {
     display: flex;
     flex-direction: column;
     padding: 8px;
-    /* margin-bottom: 8px; */
-    /* margin-left: 8px; */
 }
 
 .input-group {
