@@ -16,3 +16,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Configuration / scaffolding
 - **Human Review Status**: Reviewed and verified
 - **Git Hash**: 6aba623
+
+## [2026-06-17 13:43 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Document the gmag_webui GitHub project board in the README, and install/authenticate the gh CLI (incl. project scopes) to enable direct interaction with project board #7.
+- **Sections/Files Affected**: `README.md` (added "Project Management" section linking to the HamSCI project board)
+- **Nature of Contribution**: Documentation
+- **Human Review Status**: Reviewed and verified
+- **Git Hash**: [pending]

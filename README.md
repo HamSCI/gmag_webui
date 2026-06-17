@@ -2,6 +2,12 @@
 
 A Web User Interface for the HamSCI Ground Magnetometer.
 
+## Project Management
+
+Development is tracked on the
+[gmag_webui project board](https://github.com/orgs/HamSCI/projects/7/views/1).
+Issues and pull requests are organized there.
+
 ## Installation
 
 To install this repository, simply `git clone` to your local machine or you can
