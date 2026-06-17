@@ -211,3 +211,7 @@ deno.lock
 
 # MacOS
 .DS_Store
+
+# Claude Code local state (personal overrides — not for version control)
+.claude/settings.local.json
+CLAUDE.local.md
