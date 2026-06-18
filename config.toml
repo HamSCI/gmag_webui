@@ -19,7 +19,7 @@ grid_square = "EM38uw"
 # Write logfiles to log_output_path..
 write_logs = true
 # create logfiles in this location.
-log_output_path = "/app/mag-usb/logs"
+log_output_path = "/app/logs"
 # create this location if it does not exist.
 create_log_path_if_empty = true
 

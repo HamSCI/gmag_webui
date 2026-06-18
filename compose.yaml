@@ -27,4 +27,4 @@ services:
     tty: true
     volumes:
       - ./config.toml:/etc/mag-usb/config.toml
-      - ./logs:/app/mag-usb/logs
+      - ./logs:/app/logs
