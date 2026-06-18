@@ -100,14 +100,19 @@ footer div {
     flex: 1;
     display: grid;
     /* grid-template-columns: 300px 1fr 400px; */
-    grid-template-columns: 1fr 400px;
+    grid-template-columns: 1fr 430px;
 }
 
 /*TODO: At some point we want to make this resizable.*/
 .right-column {
     display: grid;
-    grid-template-rows: 70% 30%;
+    grid-template-rows: 19% 55% 25%;
 }
+
+.content-box {
+    padding: 5px;
+}
+
 
 #config {
     height: 100%;
@@ -151,12 +156,15 @@ thead th {
     top: 0;
     background: var(--hbar-grad);
     color: #fff;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    padding: 6px;
+    /* padding-top: 6px;
+    padding-bottom: 6px; */
 }
 
 td {
     text-align: center;
+    padding: 2px;
+    /* font-size: 10pt; */
 }
 
 tbody tr:hover {
@@ -202,6 +210,7 @@ tr:nth-of-type(2n) {
     background-color: #333;
     color: #fff;
     padding: 6px;
+    border-radius: 8px;
 }
 
 .header > * {
@@ -374,4 +383,53 @@ tr:nth-of-type(2n) {
 .tab.active {
     border-style: outset;
     background-color: #545454;
+}
+
+#current {
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 5px;
+    padding: 5px 0;
+}
+.row1, .row2 {
+    display: grid;
+    gap: 5px;
+}
+.row1 {
+    grid-template-columns: repeat(3, 1fr);
+}
+.row2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+.cell {
+    padding: 5px;
+    text-align: center;
+    display: grid;
+    border-radius: 8px;
+    color: #fff;
+}
+
+.row1 .cell:first-of-type {
+    background-color: #a0071e;
+}
+.row1 .cell:nth-of-type(2) {
+    background-color: #335e3b;
+}
+.row1 .cell:last-of-type {
+    background-color: #023e8a;
+}
+.row2 .cell:first-of-type {
+    background-color: #da1884;
+}
+.row2 .cell:last-of-type {
+    background-color: #ffb200;
+}
+.cell-head {
+    text-align: left;
+    font-size: 8pt;
+    font-weight: lighter;
+}
+.cell-value {
+    font-size: 18pt;
+    /* font-weight: bold; */
 }

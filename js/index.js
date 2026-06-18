@@ -254,6 +254,29 @@ function addSpreadsheetRow(measurement) {
 }
 
 /**
+ *
+ * @param {Measurement} m
+ */
+function updateCurrentTable(m) {
+    const h = document.getElementById("h");
+    const e = document.getElementById("e");
+    const z = document.getElementById("z");
+    const magnitude = document.getElementById("mag");
+    const temperature = document.getElementById("temp");
+
+    const dispVec = m.HEZ
+        .rotate("x", settings.transform.x, false)
+        .rotate("y", settings.transform.y, false)
+        .rotate("z", settings.transform.z, false);
+
+    h.textContent = dispVec[0].toFixed(3);
+    e.textContent = dispVec[1].toFixed(3);
+    z.textContent = dispVec[2].toFixed(3);
+    magnitude.textContent = m.HEZ.magnitude.toFixed(3);
+    temperature.textContent = m.celsius.toFixed(2);
+}
+
+/**
  * Callback handler for each magnetometer reading.
  * @param {CustomEvent<MagUsbJson>} ev
  */
@@ -287,6 +310,7 @@ function onMagRead(ev) {
     }
     sBucket.push(measurement);
     addSpreadsheetRow(measurement);
+    updateCurrentTable(measurement);
     extendAllTraces(measurement);
     if (sBucket.length >= SL_BUCKET_MAX) {
         const bAgg = reduceBucket(sBucket);

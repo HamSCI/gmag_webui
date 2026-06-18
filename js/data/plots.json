@@ -76,7 +76,7 @@
                 "width": 2
             },
             "hovertemplate": "%{y:.3f}<extra></extra>",
-            "name": "Remote (°C)",
+            "name": "Temperature (°C)",
             "xaxis": "x5",
             "yaxis": "y5"
         }

@@ -159,12 +159,44 @@
                 <div id="plots"></div>
             </main>
             <div class="right-column">
+                <div id="current-wrapper" class="content-box">
+                    <div class="header">
+                        <i class="fa-solid fa-gauge-high"></i>
+                        <span>Current Reading</span>
+                    </div>
+                    <div id="current">
+                        <div class="row1">
+                            <div class="cell">
+                                <div class="cell-head">H (nT)</div>
+                                <div id="h" class="cell-value">-</div>
+                            </div>
+                            <div class="cell">
+                                <div class="cell-head">E (nT)</div>
+                                <div id="e" class="cell-value">-</div>
+                            </div>
+                            <div class="cell">
+                                <div class="cell-head">Z (nT)</div>
+                                <div id="z" class="cell-value">-</div>
+                            </div>
+                        </div>
+                        <div class="row2">
+                            <div class="cell">
+                                <div class="cell-head">Magnitude (nT)</div>
+                                <div id="mag" class="cell-value">-</div>
+                            </div>
+                            <div class="cell">
+                                <div class="cell-head">Temperature (&deg;C)</div>
+                                <div id="temp" class="cell-value">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="data" class="content-box">
                     <div class="header">
                         <i class="fa-solid fa-table"></i>
                         <span>Spreadsheet</span>
                     </div>
-                    <!--Table containing x, y, z, rt, magnitude, etc.-->
+                    <!--Table containing H, E, Z, Temp, magnitude, etc.-->
                     <div id="spreadsheet">
                         <table class="fixed-table">
                             <thead class="fixed-head">
