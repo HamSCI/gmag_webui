@@ -24,3 +24,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Documentation
 - **Human Review Status**: Reviewed and verified
 - **Git Hash**: fa7694d
+
+## [2026-06-22 14:26 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Implement moving-average filtering (GitHub issue #24, FR-DP-04). Added a trailing, time-based moving-average filter with a configurable window (10s/30s/60s) and on/off toggle, overlaying smoothed H/E/Z/Magnitude/Temperature traces on faded raw data; handles data gaps gracefully. Also fixed a pre-existing ReferenceError in the magclose reset path (undefined mainTraces/slTraces) that my trace changes interacted with.
+- **Sections/Files Affected**: `js/filter.js` (new — trailing moving-average algorithm), `js/filter_test.js` (new — 5 unit tests), `js/data/plots.json` (5 overlay traces), `index.html` (Moving Average controls), `js/index.js` (settings + migration, overlay recompute/append/visibility, control wiring, file-upload + magclose-reset integration)
+- **Nature of Contribution**: Code generation (feature implementation + bug fix)
+- **Human Review Status**: Reviewed and verified (unit tests pass; serve/asset smoke test passes; live UI against a magnetometer host not yet exercised)
+- **Git Hash**: [pending]

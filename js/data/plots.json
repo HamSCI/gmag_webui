@@ -79,6 +79,96 @@
             "name": "Temperature (°C)",
             "xaxis": "x5",
             "yaxis": "y5"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "H (filtered)",
+            "xaxis": "x",
+            "yaxis": "y"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#0f0"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "E (filtered)",
+            "xaxis": "x2",
+            "yaxis": "y2"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#00f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "Z (filtered)",
+            "xaxis": "x3",
+            "yaxis": "y3"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f0f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "Magnitude (filtered)",
+            "xaxis": "x4",
+            "yaxis": "y4"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#ffae00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "Temperature (filtered)",
+            "xaxis": "x5",
+            "yaxis": "y5"
         }
     ],
     "layout": {

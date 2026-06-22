@@ -130,6 +130,26 @@
                                 Save
                             </button>
                         </div>
+                        <div class="settings-subhead">
+                            <i class="fa-solid fa-wave-square"></i>
+                            <span>Moving Average</span>
+                        </div>
+                        <div class="control-group">
+                            <div id="filterGroup" class="select-group">
+                                <button name="off" disabled>Off</button>
+                                <button name="on">On</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="slider-group">
+                                <label for="filterWindow">Window</label>
+                                <select name="filterWindow" id="filterWindow">
+                                    <option value="10">10 seconds</option>
+                                    <option value="30">30 seconds</option>
+                                    <option value="60" selected>60 seconds</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="settings-group">

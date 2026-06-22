@@ -1,6 +1,7 @@
 /// <reference path="./index.d.ts" />
 import Measurement from "./Measurement.js";
 import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
+import { trailingAverageAt, movingAverage } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
 
@@ -15,12 +16,23 @@ const PLOTS_BUF_MAX = 3600; // 1 hour max buffer
 const SPARK_BUF_MAX = 100;
 const SL_BUCKET_MAX = 10;
 
+// Main-plot trace indices. The raw H/E/Z/Magnitude/Temperature series occupy
+// 0-4; the moving-average overlay series mirror them at 5-9 (see plots.json).
+const RAW_TRACES = [0, 1, 2, 3, 4];
+const FILTER_TRACES = [5, 6, 7, 8, 9];
+// Allowed moving-average window sizes, in seconds (see #filterWindow).
+const FILTER_WINDOWS = [10, 30, 60];
+// Opacity applied to the raw series while the filter overlay is shown, so the
+// smoothed lines read as the primary signal without hiding the raw data.
+const RAW_FADED_OPACITY = 0.25;
+
 // Check for previously saved settings. Init defaults if not found.
 if (window.localStorage.getItem("settings") === null) {
     window.localStorage.setItem("settings", JSON.stringify({
         inHEZ: true,
         displayWindow: "1h",
         transform: { x: 0, y: 0, z: 0 },
+        filter: { enabled: false, windowSec: 60 },
         // This is future proofing for the tabber system later.
         sources: [
             {
@@ -34,6 +46,11 @@ if (window.localStorage.getItem("settings") === null) {
 
 /** @type {DashSettings} */
 const settings = JSON.parse(window.localStorage.getItem("settings"));
+
+// Migrate settings saved before the moving-average filter existed.
+if (!settings.filter) {
+    settings.filter = { enabled: false, windowSec: 60 };
+}
 
 function saveSettings() {
     window.localStorage.setItem("settings", JSON.stringify(settings));
@@ -100,22 +117,70 @@ Plotly.newPlot(sparkDiv, slInit.traces, slInit.layout, slInit.config);
 let autofollow = true;
 let updateLock = false;
 
-function addAllTraces() {
-    Plotly.addTraces(plotsDiv, mainTraces);
-    Plotly.addTraces(sparkDiv, slTraces);
+/**
+ * Applies the saved coordinate transform to a measurement's HEZ vector.
+ * @param {Measurement} m
+ * @returns {Vector} the rotated HEZ vector ready for display
+ */
+function rotatedHEZ(m) {
+    const { transform: { x, y, z } } = settings;
+    return m.HEZ
+        .rotate("x", x, false)
+        .rotate("y", y, false)
+        .rotate("z", z, false);
 }
 
-function deleteAllTraces() {
-    Plotly.deleteTraces(plotsDiv, [0, 1, 2, 3, 4]);
-    Plotly.deleteTraces(sparkDiv, [0, 1, 2, 3, 4]);
+/** Resets both plots to their initial empty state. */
+function resetPlots() {
+    Plotly.react(plotsDiv,
+        structuredClone(plotsInit.traces), plotsInit.layout, plotsInit.config);
+    Plotly.react(sparkDiv,
+        structuredClone(slInit.traces), slInit.layout, slInit.config);
+}
+
+/**
+ * Recomputes the moving-average overlay (H, E, Z, Magnitude, Temperature) from
+ * the current raw buffer and redraws traces 5-9 in a single restyle. Used when
+ * the whole series must be rebuilt at once (toggle on, window change, rotation
+ * change, file load).
+ */
+function recomputeFiltered() {
+    const smoothed = movingAverage(measurements, settings.filter.windowSec);
+    const x = smoothed.map(m => m.ts);
+    const vectors = smoothed.map(rotatedHEZ);
+    Plotly.restyle(plotsDiv, {
+        x: FILTER_TRACES.map(() => x),
+        y: [
+            vectors.map(v => v[0]),
+            vectors.map(v => v[1]),
+            vectors.map(v => v[2]),
+            vectors.map(v => parseFloat(v.magnitude.toFixed(3))),
+            smoothed.map(m => m.celsius),
+        ],
+    }, FILTER_TRACES);
+}
+
+/**
+ * Shows or hides the moving-average overlay and fades the raw series to match
+ * the current filter setting, without touching the underlying data.
+ */
+function syncFilterVisual() {
+    const on = settings.filter.enabled;
+    Plotly.restyle(plotsDiv,
+        { opacity: on ? RAW_FADED_OPACITY : 1 }, RAW_TRACES);
+    Plotly.restyle(plotsDiv, { visible: on }, FILTER_TRACES);
+}
+
+/** Rebuilds the overlay data (when enabled) and syncs its visibility. */
+function refreshFilter() {
+    if (settings.filter.enabled && measurements.length > 0) {
+        recomputeFiltered();
+    }
+    syncFilterVisual();
 }
 
 function updateCoordGraphs() {
-    const { transform: { x: rX, y: rY, z: rZ } } = settings;
-    const vectors = measurements.map(m => m.HEZ
-        .rotate("x", rX, false)
-        .rotate("y", rY, false)
-        .rotate("z", rZ, false));
+    const vectors = measurements.map(rotatedHEZ);
     // Only the coordinate graphs actually change. The magnitude will remain
     // the same.
     /** @type {[0, 1, 2]} */
@@ -123,6 +188,10 @@ function updateCoordGraphs() {
     Plotly.restyle(plotsDiv, {
         y: traces.map(t => vectors.map(v => v[t]))
     }, traces);
+    // The smoothed overlay depends on the same rotation, so rebuild it too.
+    if (settings.filter.enabled) {
+        recomputeFiltered();
+    }
 }
 
 // Toggle sidebar
@@ -160,6 +229,40 @@ document.getElementById("saveRot").addEventListener("click", ev => {
     updateCoordGraphs();
 });
 
+// Moving-average filter controls
+const filterGroup = document.getElementById("filterGroup");
+const filterWindow = document.getElementById("filterWindow");
+const filterOff = filterGroup.querySelector('button[name="off"]');
+const filterOn = filterGroup.querySelector('button[name="on"]');
+
+// Load the saved filter state into the controls. The active button in a
+// select-group is shown by disabling it (see .select-group:disabled in CSS).
+filterWindow.value = String(settings.filter.windowSec);
+filterOff.disabled = !settings.filter.enabled;
+filterOn.disabled = settings.filter.enabled;
+
+/** @param {boolean} enabled */
+function setFilterEnabled(enabled) {
+    settings.filter.enabled = enabled;
+    saveSettings();
+    filterOff.disabled = !enabled;
+    filterOn.disabled = enabled;
+    refreshFilter();
+}
+
+filterOff.addEventListener("click", () => setFilterEnabled(false));
+filterOn.addEventListener("click", () => setFilterEnabled(true));
+
+filterWindow.addEventListener("change", ev => {
+    const windowSec = parseInt(ev.target.value, 10);
+    if (!FILTER_WINDOWS.includes(windowSec)) return;
+    settings.filter.windowSec = windowSec;
+    saveSettings();
+    if (settings.filter.enabled) {
+        recomputeFiltered();
+    }
+});
+
 function updateRange() {
     const { ts: latest } = measurements[measurements.length - 1];
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
@@ -190,12 +293,7 @@ timeSelect.addEventListener("change", ev => {
  * @param {Measurement} measurement
  */
 function extendAllTraces(measurement) {
-    const { transform: { x: rX, y: rY, z: rZ } } = settings;
-
-    const dispVec = measurement.HEZ
-        .rotate("x", rX, false)
-        .rotate("y", rY, false)
-        .rotate("z", rZ, false);
+    const dispVec = rotatedHEZ(measurement);
     const { ts } = measurement;
     Plotly.extendTraces(plotsDiv, {
         x: [[ts], [ts], [ts], [ts], [ts]],
@@ -206,11 +304,29 @@ function extendAllTraces(measurement) {
             [parseFloat(dispVec.magnitude.toFixed(3))],
             [measurement.celsius],
         ],
-    }, [0, 1, 2, 3, 4]);
+    }, RAW_TRACES);
+
+    // A trailing moving average is causal, so each smoothed point is final once
+    // computed: we can append the newest one rather than rebuilding the series.
+    if (settings.filter.enabled) {
+        const smoothed = trailingAverageAt(
+            measurements, measurements.length - 1, settings.filter.windowSec);
+        const filtVec = rotatedHEZ(smoothed);
+        Plotly.extendTraces(plotsDiv, {
+            x: [[ts], [ts], [ts], [ts], [ts]],
+            y: [
+                [filtVec[0]],
+                [filtVec[1]],
+                [filtVec[2]],
+                [parseFloat(filtVec.magnitude.toFixed(3))],
+                [smoothed.celsius],
+            ],
+        }, FILTER_TRACES);
+    }
 }
 
 function updateSparks() {
-    while (sparklines.length > 100) {
+    while (sparklines.length > SPARK_BUF_MAX) {
         sparklines.shift();
     }
     const newSlTraces = buildSparklineTraces(sparklines);
@@ -345,9 +461,13 @@ plotsDiv.on("plotly_doubleclick", ev => {
 // Reset the graphs and clear the spreadsheet
 document.addEventListener("magclose", ev => {
     document.querySelector("#spreadsheet table tbody").innerHTML = "";
-    deleteAllTraces();
-    addAllTraces();
     measurements.length = 0;
+    sparklines.length = 0;
+    sBucket.length = 0;
+    resetPlots();
+    // resetPlots() restores the overlay traces to their hidden default, so
+    // re-apply the fade/visibility that matches the current filter setting.
+    syncFilterVisual();
 });
 
 // JSONL File upload
@@ -396,6 +516,8 @@ document.getElementById("saveLog").addEventListener("click", ev => {
             }, {
                 "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts],
             }, [0, 1, 2, 3, 4])
+            // Rebuild the moving-average overlay for the freshly loaded data.
+            refreshFilter();
             // This currently lags the client. Need a different approach!
             // for (const log of logs) {
             //     addSpreadsheetRow(log);
@@ -423,6 +545,9 @@ document.getElementById("saveLog").addEventListener("click", ev => {
  * @prop {number} transform.x
  * @prop {number} transform.y
  * @prop {number} transform.z
+ * @prop {object} filter
+ * @prop {boolean} filter.enabled
+ * @prop {number} filter.windowSec
  * @prop {DataSource[]} sources
  */
 
