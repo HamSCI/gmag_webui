@@ -32,3 +32,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (feature implementation + bug fix)
 - **Human Review Status**: Reviewed and verified (unit tests pass; serve/asset smoke test passes; live UI against a magnetometer host not yet exercised)
 - **Git Hash**: a120f52
+
+## [2026-06-22 15:57 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Fix and improve the dashboard's right-column / spreadsheet layout and the moving-average filter's persistence. (1) Bounded the page to the viewport so it no longer scrolls/breaks, and made the spreadsheet fill its box and scroll internally. (2) Replaced the recoiling sticky table header with a static header over an independently scrolling body, with aligned columns. (3) Made the spreadsheet reflect coordinate-rotation changes across all existing rows (not just new ones). (4) Kept the Date column on one line and widened the right column so values stay readable. (5) Fixed the moving-average overlay not showing after a page refresh when the filter was enabled in localStorage.
+- **Sections/Files Affected**: `css/index.css` (viewport/grid bounding, static header + scrolling body, date column, wider right column, spreadsheet spacing), `index.html` (explicit header `<tr>`), `js/index.js` (spreadsheetRowHTML / rebuildSpreadsheet on rotation save; apply saved filter state on load)
+- **Nature of Contribution**: Code generation + bug fixes (with some manual edits by the author to spacing)
+- **Human Review Status**: Reviewed and verified (layout, static header, column alignment, and filter-on-refresh all verified via headless-browser rendering; author confirmed visual result)
+- **Git Hash**: [pending]

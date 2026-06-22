@@ -20,7 +20,8 @@
 body {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -41,6 +42,9 @@ header > div {
 main {
     display: flex;
     flex-direction: column;
+    /* Allow the grid row to constrain the plots rather than the plots'
+       intrinsic height stretching the row (and the whole layout) taller. */
+    min-height: 0;
 }
 
 /* main > div {
@@ -49,6 +53,14 @@ main {
 
 #plots {
     height: 100%;
+}
+
+#sparklines {
+    /* Fill the Trends box below its header so Plotly sizes to the container
+       instead of its default height (which would overflow the grid track). */
+    flex: 1;
+    min-height: 0;
+    padding-top: 5px;
 }
 
 a {
@@ -98,19 +110,35 @@ footer div {
 
 .layout {
     flex: 1;
+    /* Take exactly the height left by the header/footer and pin the single
+       grid row to it (minmax floor of 0), so tall column content scrolls or
+       clips inside its cell instead of stretching the page. */
+    min-height: 0;
     display: grid;
     /* grid-template-columns: 300px 1fr 400px; */
-    grid-template-columns: 1fr 430px;
+    grid-template-columns: 1fr 500px;
+    grid-template-rows: minmax(0, 1fr);
 }
 
 /*TODO: At some point we want to make this resizable.*/
 .right-column {
     display: grid;
-    grid-template-rows: 19% 55% 25%;
+    /* Current Reading sizes to its content (no trailing whitespace), the
+       spreadsheet takes the remaining space and scrolls, and Trends keeps a
+       proportional slice. minmax(0, …) lets the middle row shrink so its
+       table scrolls instead of pushing Trends off-screen. */
+    grid-template-rows: auto minmax(0, 1fr) 25%;
+    min-height: 0;
 }
 
 .content-box {
-    padding: 5px;
+    padding: 5px 5px 0;
+    /* Stack the header above scrollable/fillable content and keep each box
+       within its grid track so it never pushes the page taller. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
 }
 
 
@@ -139,11 +167,22 @@ footer div {
     flex-grow: 1;
 }
 
+#data, #trends {
+    padding: 0 5px 5px;
+}
+
 #spreadsheet {
-    overflow-y: auto;
-    /* height: 350px; */
-    max-height: 350px;
-    font-size: 11pt;
+    /* Fill the remaining height of the box (below the header). The table body
+       scrolls internally, so this element itself does not scroll. */
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Match the small gap the Current Reading box leaves below its header. */
+    margin-top: 5px;
+    font-size: 10pt;
+    border-radius: 8px;
 }
 
 table {
@@ -151,9 +190,45 @@ table {
     width: 100%;
 }
 
+/* Static header + independently scrolling body. The table is a flex column:
+   the header (.fixed-head) stays put while only the body (.scrolling) scrolls.
+   Header and body rows are laid out as fixed-layout tables so their columns
+   stay aligned. This replaces position: sticky, which recoiled at the top. */
+.fixed-table {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.fixed-head {
+    display: block;
+    flex: 0 0 auto;
+}
+
+.scrolling {
+    display: block;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.fixed-head tr,
+.scrolling tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Keep the timestamp on one line; the remaining columns share the rest. */
+.fixed-head th:first-child,
+.scrolling td:first-child {
+    width: 25%;
+    white-space: nowrap;
+}
+
 thead th {
-    position: sticky;
-    top: 0;
     background: var(--hbar-grad);
     color: #fff;
     padding: 6px;

@@ -227,6 +227,7 @@ document.getElementById("saveRot").addEventListener("click", ev => {
     settings.transform.z = rotZ.value;
     saveSettings();
     updateCoordGraphs();
+    rebuildSpreadsheet();
 });
 
 // Moving-average filter controls
@@ -240,6 +241,9 @@ const filterOn = filterGroup.querySelector('button[name="on"]');
 filterWindow.value = String(settings.filter.windowSec);
 filterOff.disabled = !settings.filter.enabled;
 filterOn.disabled = settings.filter.enabled;
+// Apply the saved filter to the freshly created plot so a refresh with the
+// filter enabled shows the overlay (and faded raw) instead of a hidden one.
+refreshFilter();
 
 /** @param {boolean} enabled */
 function setFilterEnabled(enabled) {
@@ -334,9 +338,13 @@ function updateSparks() {
 }
 
 /**
+ * Builds the spreadsheet table row for a measurement, applying the current
+ * coordinate transform. The moving-average filter intentionally does not affect
+ * the spreadsheet — it always shows the rotated raw reading.
  * @param {Measurement} measurement
+ * @returns {string} the `<tr>` markup for this measurement
  */
-function addSpreadsheetRow(measurement) {
+function spreadsheetRowHTML(measurement) {
     // Reformat the date for the spreadsheet. Specifically, we want this to be
     // in local time on the client end for their convenience.
     const date = new Intl.DateTimeFormat("en-US", {
@@ -350,14 +358,9 @@ function addSpreadsheetRow(measurement) {
     }).format(measurement.ts);
 
     // Apply coordinate system and transform deltas
-    const dispVector = measurement.HEZ
-        .rotate("x", settings.transform.x, false)
-        .rotate("y", settings.transform.y, false)
-        .rotate("z", settings.transform.z, false);
+    const dispVector = rotatedHEZ(measurement);
 
-    // Add the new row to the top of the table.
-    document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
-        "afterbegin", `
+    return `
         <tr>
             <td>${date}</td>
             <td>${dispVector[0].toFixed(3)}</td>
@@ -365,8 +368,28 @@ function addSpreadsheetRow(measurement) {
             <td>${dispVector[2].toFixed(3)}</td>
             <td>${dispVector.magnitude.toFixed(3)}</td>
             <td>${measurement.celsius.toFixed(2)}</td>
-        </tr>`);
+        </tr>`;
+}
+
+/**
+ * Prepends a measurement's row to the top of the spreadsheet (newest first).
+ * @param {Measurement} measurement
+ */
+function addSpreadsheetRow(measurement) {
+    document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
+        "afterbegin", spreadsheetRowHTML(measurement));
     // TODO: Remove last row once we're at max buffer size?
+}
+
+/**
+ * Rebuilds every spreadsheet row from the buffered measurements. Used when the
+ * coordinate transform changes so that existing rows reflect it too, not just
+ * rows added afterward.
+ */
+function rebuildSpreadsheet() {
+    // measurements run oldest -> newest, but the table shows newest at the top.
+    document.querySelector("#spreadsheet table tbody").innerHTML =
+        measurements.map(spreadsheetRowHTML).reverse().join("");
 }
 
 /**
