@@ -31,4 +31,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/filter.js` (new — trailing moving-average algorithm), `js/filter_test.js` (new — 5 unit tests), `js/data/plots.json` (5 overlay traces), `index.html` (Moving Average controls), `js/index.js` (settings + migration, overlay recompute/append/visibility, control wiring, file-upload + magclose-reset integration)
 - **Nature of Contribution**: Code generation (feature implementation + bug fix)
 - **Human Review Status**: Reviewed and verified (unit tests pass; serve/asset smoke test passes; live UI against a magnetometer host not yet exercised)
-- **Git Hash**: [pending]
+- **Git Hash**: a120f52
