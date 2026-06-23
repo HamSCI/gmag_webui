@@ -9,6 +9,12 @@
     --col-btn-disabled: rgba(0, 125, 166, 0.9);
     --col-tab-active: #424242;
     --hbar-grad: linear-gradient(#000000, #606060, #000000);
+    /* Config panel (instrument-panel surface) */
+    --panel-bg: #2b2b2b;
+    --panel-header-bg: #383838;
+    --panel-text: #f0f0f0;
+    --panel-muted: #9a9a9a;
+    --panel-border: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -114,6 +120,9 @@ footer div {
        grid row to it (minmax floor of 0), so tall column content scrolls or
        clips inside its cell instead of stretching the page. */
     min-height: 0;
+    /* Positioning context for the config sidebar, which overlays this band
+       (between the header and footer) rather than the whole viewport. */
+    position: relative;
     display: grid;
     /* grid-template-columns: 300px 1fr 400px; */
     grid-template-columns: 1fr 500px;
@@ -143,17 +152,19 @@ footer div {
 
 
 #config {
-    height: 100%;
-    width: 300px;
-    position: fixed;
+    width: 320px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
     z-index: 1;
     transform: translateX(-100%);
     overflow-x: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    background-color: #616161;
-    color: #fff;
-    opacity: 0.8;
+    background-color: var(--panel-bg);
+    color: var(--panel-text);
     transition: transform 0.3s ease;
 }
 
@@ -297,71 +308,168 @@ tr:nth-of-type(2n) {
     flex-grow: 2;
 }
 
-.settings-group {
-    display: flex;
-    flex-direction: column;
+/* Collapsible panel cards */
+.panel {
+    border-bottom: 1px solid var(--panel-border);
 }
-.settings-group > .group-header {
+
+.panel-header {
+    width: 100%;
     display: flex;
     flex-direction: row;
-    background-color: #383838;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--panel-header-bg);
     color: #fff;
-    padding: 6px;
-}
-.settings-group > .group-content {
-    display: flex;
-    flex-direction: column;
-    /* padding: 12px; */
-}
-
-.group-header > span {
-    flex-grow: 1;
-}
-
-.settings-subhead {
-    display: flex;
-    flex-direction: row;
-    background-color: #4f4f4f;
-    color: #fff;
-    padding: 6px;
-}
-
-.control-group {
-    display: flex;
-    flex-direction: column;
-    padding: 8px;
-}
-
-.input-group {
-    display: flex;
-    flex-direction: row;
-    font-size: 11pt;
-}
-.input-group > * {
-    padding: 4px;
-}
-.input-group > input {
-    /* border-top-right-radius: 0; */
-    /* border-bottom-right-radius: 0; */
-    border-radius: 4px 0 0 4px;
     border: 0;
-    font-size: inherit;
-    flex-grow: 1;
-}
-.input-group > input[type="file"] {
-    width: 65%;
-}
-.input-group > button:not(:last-of-type) {
     border-radius: 0;
+    padding: 11px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s ease;
 }
-.input-group > button:last-of-type {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
+.panel-header:hover {
+    background-color: #444;
+}
+.panel-header .title {
+    flex-grow: 1;
+    text-align: left;
+}
+.panel-header .chevron {
+    font-size: 10px;
+    color: var(--panel-muted);
+    transition: transform 0.2s ease;
+}
+.panel[data-collapsed="true"] .chevron {
+    transform: rotate(-90deg);
+}
+.panel[data-collapsed="true"] .panel-body {
+    display: none;
 }
 
+.panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 12px;
+}
+
+/* Fields */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.field-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--panel-muted);
+}
+.field-label .muted {
+    text-transform: none;
+    letter-spacing: 0;
+}
+.field input[type="text"],
+.field input[type="password"],
+.field input[type="url"],
+.field select {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 13px;
+    background-color: #fff;
+    color: #1a1a1a;
+}
+.field input.mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+.field input:focus-visible,
+.field select:focus-visible {
+    outline: 2px solid var(--col-btn-inactive);
+    outline-offset: 1px;
+}
+.field input[type="file"] {
+    font-size: 12px;
+    color: var(--panel-text);
+}
+.field-error {
+    font-size: 11px;
+    color: var(--col-danger);
+}
+.field-error:empty {
+    display: none;
+}
+
+/* Subheads inside a panel body */
+.subhead {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #cfcfcf;
+}
+
+.note {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--panel-muted);
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 6px;
+    padding: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.btn-primary {
+    background-color: var(--col-btn-inactive);
+    color: #fff;
+}
+.btn-primary:hover {
+    background-color: var(--col-btn-hover);
+}
+.btn-secondary {
+    background-color: #515151;
+    color: #fff;
+}
+.btn-secondary:hover {
+    background-color: #5e5e5e;
+}
+
+/* Segmented control (source type, moving-average toggle) */
 .select-group {
     display: flex;
     flex-direction: row;
+}
+.select-group > button {
+    flex: 1 1 0;
+    border: 0;
+    padding: 7px 4px;
+    font-size: 12px;
+    cursor: pointer;
 }
 .select-group > button:not(:first-of-type):not(:last-of-type) {
     border-radius: 0;
@@ -376,27 +484,28 @@ tr:nth-of-type(2n) {
 }
 .select-group > button:disabled {
     background-color: var(--col-success);
+    color: #fff;
+    cursor: default;
 }
 
-.button-group {
-    display: flex;
-    flex-direction: row;
-}
-.button-group > button:not(:first-of-type):not(:last-of-type) {
-    border-radius: 0;
-}
-.button-group > button:first-of-type {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-}
-.button-group > button:last-of-type {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
+/* Rotation sliders: label | track | value */
 .slider-group {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: 14px 1fr 34px;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.slider-group > input[type="range"] {
+    width: 100%;
+}
+.slider-group > span {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.type-fields[hidden] {
+    display: none;
 }
 
 #tabber {

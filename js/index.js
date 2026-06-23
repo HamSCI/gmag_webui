@@ -33,6 +33,12 @@ if (window.localStorage.getItem("settings") === null) {
         displayWindow: "1h",
         transform: { x: 0, y: 0, z: 0 },
         filter: { enabled: false, windowSec: 60 },
+        connection: {
+            name: "",
+            type: "websocket",
+            websocket: { url: "" },
+            mqtt: { broker: "", topic: "", username: "", password: "" },
+        },
         // This is future proofing for the tabber system later.
         sources: [
             {
@@ -50,6 +56,15 @@ const settings = JSON.parse(window.localStorage.getItem("settings"));
 // Migrate settings saved before the moving-average filter existed.
 if (!settings.filter) {
     settings.filter = { enabled: false, windowSec: 60 };
+}
+// Migrate settings saved before the connection panel existed.
+if (!settings.connection) {
+    settings.connection = {
+        name: "",
+        type: "websocket",
+        websocket: { url: "" },
+        mqtt: { broker: "", topic: "", username: "", password: "" },
+    };
 }
 
 function saveSettings() {
@@ -403,10 +418,7 @@ function updateCurrentTable(m) {
     const magnitude = document.getElementById("mag");
     const temperature = document.getElementById("temp");
 
-    const dispVec = m.HEZ
-        .rotate("x", settings.transform.x, false)
-        .rotate("y", settings.transform.y, false)
-        .rotate("z", settings.transform.z, false);
+    const dispVec = rotatedHEZ(m);
 
     h.textContent = dispVec[0].toFixed(3);
     e.textContent = dispVec[1].toFixed(3);
@@ -444,7 +456,7 @@ function onMagRead(ev) {
     }
 
     measurements.push(measurement);
-    while (measurements.length >= PLOTS_BUF_MAX) {
+    while (measurements.length > PLOTS_BUF_MAX) {
         measurements.shift();
     }
     sBucket.push(measurement);
@@ -493,35 +505,30 @@ document.addEventListener("magclose", ev => {
     syncFilterVisual();
 });
 
-// JSONL File upload
-document.getElementById("saveLog").addEventListener("click", ev => {
-    /** @type {HTMLInputElement} */
-    const uploader = document.getElementById("logfile");
-    if (uploader.files.length === 0) {
-        alert("Missing .log file.");
-        return;
-    }
-    console.log(uploader.files[0].type);
-    uploader.files[0].text()
+/**
+ * Loads a JSONL .log file into the dashboard, replacing the current buffer.
+ * @param {File} file the .log file selected by the user
+ * @returns {Promise<void>} resolves once the plot is updated
+ */
+function loadLogFile(file) {
+    return file.text()
         .then(text => text.trim().split("\n"))
         .then(lines => {
             /** @type {Measurement[]} */
             const logs = [];
             for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
                 try {
                     /** @type {MagUsbJson} */
-                    const json = JSON.parse(line);
-                    const m = new Measurement(
+                    const json = JSON.parse(lines[i]);
+                    logs[i] = new Measurement(
                         json.ts, json.rt, json.x, json.y, json.z);
-                    logs[i] = m;
                 } catch (err) {
                     console.log(err);
                     throw new Error(
-                        `Cannot load file. Line ${i+1} is malformed.`);
+                        `Cannot load file. Line ${i + 1} is malformed.`);
                 }
             }
-            console.log(`Loaded ${uploader.files[0].name}`);
+            console.log(`Loaded ${file.name}`);
             return logs;
         }).then(logs => {
             measurements.length = 0;
@@ -538,17 +545,118 @@ document.getElementById("saveLog").addEventListener("click", ev => {
                 ]
             }, {
                 "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts],
-            }, [0, 1, 2, 3, 4])
+            }, [0, 1, 2, 3, 4]);
             // Rebuild the moving-average overlay for the freshly loaded data.
             refreshFilter();
-            // This currently lags the client. Need a different approach!
-            // for (const log of logs) {
-            //     addSpreadsheetRow(log);
-            // }
-        }).catch(err => {
-            console.error(err);
-            alert(err.message);
+            window.MagConnection.setStatus(4);
         });
+}
+
+// --- Connection panel (issue #20) ---
+const srcName = document.getElementById("srcName");
+const connType = document.getElementById("connType");
+const wsUrl = document.getElementById("wsUrl");
+const wsUrlErr = document.getElementById("wsUrlErr");
+const mqttBroker = document.getElementById("mqttBroker");
+const mqttTopic = document.getElementById("mqttTopic");
+const mqttUser = document.getElementById("mqttUser");
+const mqttPass = document.getElementById("mqttPass");
+const logfile = document.getElementById("logfile");
+const fileErr = document.getElementById("fileErr");
+const connectBtn = document.getElementById("connectBtn");
+const typeButtons = [...connType.querySelectorAll("button")];
+
+/**
+ * Shows only the fields for the given source type and marks its button active.
+ * @param {string} type "websocket" | "mqtt" | "file"
+ */
+function showTypeFields(type) {
+    document.querySelectorAll("#config .type-fields").forEach(el => {
+        el.hidden = el.dataset.type !== type;
+    });
+    typeButtons.forEach(b => { b.disabled = b.name === type; });
+}
+
+// Load saved connection settings into the form.
+const conn = settings.connection;
+srcName.value = conn.name ?? "";
+wsUrl.value = conn.websocket?.url ?? "";
+mqttBroker.value = conn.mqtt?.broker ?? "";
+mqttTopic.value = conn.mqtt?.topic ?? "";
+mqttUser.value = conn.mqtt?.username ?? "";
+mqttPass.value = conn.mqtt?.password ?? "";
+showTypeFields(conn.type ?? "websocket");
+
+// Switch source type (only changes which fields are shown; doesn't connect).
+typeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+        settings.connection.type = btn.name;
+        saveSettings();
+        wsUrlErr.textContent = "";
+        fileErr.textContent = "";
+        showTypeFields(btn.name);
+    });
+});
+
+// Clear validation messages as the user edits.
+wsUrl.addEventListener("input", () => { wsUrlErr.textContent = ""; });
+logfile.addEventListener("change", () => { fileErr.textContent = ""; });
+
+/**
+ * @param {string} url
+ * @returns {boolean} whether `url` is a valid ws:// or wss:// URL
+ */
+function isValidWsUrl(url) {
+    try {
+        const u = new URL(url);
+        return u.protocol === "ws:" || u.protocol === "wss:";
+    } catch {
+        return false;
+    }
+}
+
+connectBtn.addEventListener("click", () => {
+    const { type } = settings.connection;
+    // Persist the current form values regardless of type.
+    settings.connection.name = srcName.value.trim();
+    settings.connection.websocket.url = wsUrl.value.trim();
+    settings.connection.mqtt = {
+        broker: mqttBroker.value.trim(),
+        topic: mqttTopic.value.trim(),
+        username: mqttUser.value,
+        password: mqttPass.value,
+    };
+
+    if (type === "websocket") {
+        if (!isValidWsUrl(settings.connection.websocket.url)) {
+            wsUrlErr.textContent = "Enter a ws:// or wss:// URL.";
+            return;
+        }
+        saveSettings();
+        window.MagConnection.connect(settings.connection);
+    } else if (type === "mqtt") {
+        // Settings persist now; live ingestion arrives with issue #19.
+        saveSettings();
+        alert("MQTT support is coming soon. Your settings have been saved.");
+    } else if (type === "file") {
+        if (!logfile.files || logfile.files.length === 0) {
+            fileErr.textContent = "Choose a .log file first.";
+            return;
+        }
+        saveSettings();
+        loadLogFile(logfile.files[0]).catch(err => {
+            console.error(err);
+            fileErr.textContent = err.message;
+        });
+    }
+});
+
+// --- Collapsible panels ---
+document.querySelectorAll("#config .panel-header").forEach(header => {
+    header.addEventListener("click", () => {
+        const panel = header.closest(".panel");
+        panel.dataset.collapsed = String(panel.dataset.collapsed !== "true");
+    });
 });
 
 /**

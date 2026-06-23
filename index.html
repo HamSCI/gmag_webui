@@ -48,132 +48,139 @@
         </header>
         <div class="layout">
             <aside id="config">
-                <div class="settings-group">
-                    <div class="group-header">
-                        <i class="fa-solid fa-gear"></i>
-                        <span>Data Source</span>
-                        <i class="fa-solid fa-angle-up"></i>
+                <!-- Connection (issue #20): pick a source and connect to it -->
+                <section class="panel" data-collapsed="false">
+                    <button type="button" class="panel-header">
+                        <i class="fa-solid fa-plug"></i>
+                        <span class="title">Connection</span>
+                        <i class="chevron fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="panel-body">
+                        <label class="field">
+                            <span class="field-label">Source name</span>
+                            <input type="text" id="srcName" placeholder="Untitled" />
+                        </label>
+                        <div class="field">
+                            <span class="field-label">Source type</span>
+                            <div id="connType" class="select-group">
+                                <button type="button" name="websocket" disabled>WebSocket</button>
+                                <button type="button" name="mqtt">MQTT</button>
+                                <button type="button" name="file">File</button>
+                            </div>
+                        </div>
+                        <!-- WebSocket -->
+                        <div class="type-fields" data-type="websocket">
+                            <label class="field">
+                                <span class="field-label">WebSocket URL</span>
+                                <input type="text" id="wsUrl" class="mono" placeholder="ws://host:port" />
+                                <span class="field-error" id="wsUrlErr"></span>
+                            </label>
+                        </div>
+                        <!-- MQTT (fields only for now; ingestion lands with issue #19) -->
+                        <div class="type-fields" data-type="mqtt" hidden>
+                            <label class="field">
+                                <span class="field-label">Broker URL</span>
+                                <input type="text" id="mqttBroker" class="mono" placeholder="wss://broker:port" />
+                            </label>
+                            <label class="field">
+                                <span class="field-label">Topic</span>
+                                <input type="text" id="mqttTopic" class="mono" placeholder="magnetometer/data" />
+                            </label>
+                            <label class="field">
+                                <span class="field-label">Username <span class="muted">(optional)</span></span>
+                                <input type="text" id="mqttUser" class="mono" />
+                            </label>
+                            <label class="field">
+                                <span class="field-label">Password <span class="muted">(optional)</span></span>
+                                <input type="password" id="mqttPass" class="mono" />
+                            </label>
+                            <p class="note"><i class="fa-solid fa-circle-info"></i> MQTT support is coming soon.</p>
+                        </div>
+                        <!-- File -->
+                        <div class="type-fields" data-type="file" hidden>
+                            <label class="field">
+                                <span class="field-label">Log file</span>
+                                <input type="file" id="logfile" accept=".log" />
+                                <span class="field-error" id="fileErr"></span>
+                            </label>
+                        </div>
+                        <button type="button" id="connectBtn" class="btn-primary">
+                            <i class="fa-solid fa-plug"></i>
+                            Connect
+                        </button>
                     </div>
-                    <div class="group-content">
-                        <!--Source Name-->
-                        <div class="control-group">
-                            <div class="input-group">
-                                <input type="text" name="srcName" id="srcName" placeholder="Source Name" />
-                                <button id="saveName">
-                                    <i class="fa-solid fa-floppy-disk"></i>
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                        <!--WebSocket Host-->
-                        <div class="control-group">
-                            <div class="input-group">
-                                <input type="url" id="host" placeholder="Host URL" />
-                                <button id="saveHost">
-                                    <i class="fa-solid fa-floppy-disk"></i>
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                        <!--Static File-->
-                        <div class="control-group">
-                            <div class="input-group">
-                                <input type="file" name="logfile" id="logfile" accept=".log" />
-                                <button id="saveLog">
-                                    <i class="fa-solid fa-floppy-disk"></i>
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                        <!--Need MQTT settings, etc.-->
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <div class="group-header">
-                        <i class="fa-solid fa-chart-line"></i>
-                        <span>Data Postprocessing</span>
-                        <i class="fa-solid fa-angle-up"></i>
-                    </div>
-                    <div class="group-content">
-                        <!-- <div class="settings-subhead">
-                            <i class="fa-solid fa-compass"></i>
-                            <span>Coordinate System</span>
-                        </div>
-                        <div class="control-group">
-                            <div id="coordGroup" class="select-group">
-                                <button name="hez" disabled>HEZ</button>
-                                <button name="xyz">XYZ</button>
-                            </div>
-                        </div> -->
-                        <div class="settings-subhead">
+                </section>
+
+                <!-- Processing -->
+                <section class="panel" data-collapsed="false">
+                    <button type="button" class="panel-header">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span class="title">Processing</span>
+                        <i class="chevron fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="panel-body">
+                        <div class="subhead">
                             <i class="fa-solid fa-up-down-left-right"></i>
-                            <span>Transform Rotation</span>
+                            <span>Rotation</span>
                         </div>
-                        <div class="control-group">
-                            <div class="slider-group">
-                                <label for="rotX">X</label>
-                                <input type="range" id="rotX" value="0" min="-270" max="270" step="90" />
-                                <span id="xDelta">0</span>
-                            </div>
-                            <div class="slider-group">
-                                <label for="rotY">Y</label>
-                                <input type="range" id="rotY" value="0" min="-270" max="270" step="90" />
-                                <span id="yDelta">0</span>
-                            </div>
-                            <div class="slider-group">
-                                <label for="rotZ">Z</label>
-                                <input type="range" id="rotZ" value="0" min="-270" max="270" step="90" />
-                                <span id="zDelta">0</span>
-                            </div>
-                            <button id="saveRot">
-                                <i class="fa-solid fa-floppy-disk"></i>
-                                Save
-                            </button>
+                        <div class="slider-group">
+                            <label for="rotX">X</label>
+                            <input type="range" id="rotX" value="0" min="-270" max="270" step="90" />
+                            <span id="xDelta">0</span>
                         </div>
-                        <div class="settings-subhead">
+                        <div class="slider-group">
+                            <label for="rotY">Y</label>
+                            <input type="range" id="rotY" value="0" min="-270" max="270" step="90" />
+                            <span id="yDelta">0</span>
+                        </div>
+                        <div class="slider-group">
+                            <label for="rotZ">Z</label>
+                            <input type="range" id="rotZ" value="0" min="-270" max="270" step="90" />
+                            <span id="zDelta">0</span>
+                        </div>
+                        <button type="button" id="saveRot" class="btn-secondary">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Save rotation
+                        </button>
+                        <div class="subhead">
                             <i class="fa-solid fa-wave-square"></i>
-                            <span>Moving Average</span>
+                            <span>Moving average</span>
                         </div>
-                        <div class="control-group">
-                            <div id="filterGroup" class="select-group">
-                                <button name="off" disabled>Off</button>
-                                <button name="on">On</button>
-                            </div>
+                        <div id="filterGroup" class="select-group">
+                            <button type="button" name="off" disabled>Off</button>
+                            <button type="button" name="on">On</button>
                         </div>
-                        <div class="control-group">
-                            <div class="slider-group">
-                                <label for="filterWindow">Window</label>
-                                <select name="filterWindow" id="filterWindow">
-                                    <option value="10">10 seconds</option>
-                                    <option value="30">30 seconds</option>
-                                    <option value="60" selected>60 seconds</option>
-                                </select>
-                            </div>
-                        </div>
+                        <label class="field">
+                            <span class="field-label">Window</span>
+                            <select id="filterWindow">
+                                <option value="10">10 seconds</option>
+                                <option value="30">30 seconds</option>
+                                <option value="60" selected>60 seconds</option>
+                            </select>
+                        </label>
                     </div>
-                </div>
-                <div class="settings-group">
-                    <div class="group-header">
+                </section>
+
+                <!-- Display -->
+                <section class="panel" data-collapsed="false">
+                    <button type="button" class="panel-header">
                         <i class="fa-solid fa-chart-line"></i>
-                        <span>Data Visualization</span>
-                        <i class="fa-solid fa-angle-up"></i>
-                    </div>
-                    <div class="group-content">
-                        <div class="settings-subhead">
-                            <i class="fa-solid fa-clock"></i>
-                            <span>Time Window</span>
-                        </div>
-                        <div class="control-group">
-                            <select name="timerange" id="timerange">
+                        <span class="title">Display</span>
+                        <i class="chevron fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="panel-body">
+                        <label class="field">
+                            <span class="field-label">Time window</span>
+                            <select id="timerange">
                                 <option value="1m">1 Minute</option>
                                 <option value="5m">5 Minutes</option>
                                 <option value="15m">15 Minutes</option>
                                 <option value="1h" selected>1 Hour</option>
                                 <!-- <option value="4h">4 Hours</option> -->
                             </select>
-                        </div>
+                        </label>
                     </div>
-                </div>
+                </section>
             </aside>
             <main>
                 <div id="plots"></div>

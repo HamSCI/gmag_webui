@@ -40,3 +40,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation + bug fixes (with some manual edits by the author to spacing)
 - **Human Review Status**: Reviewed and verified (layout, static header, column alignment, and filter-on-refresh all verified via headless-browser rendering; author confirmed visual result)
 - **Git Hash**: 3403d75
+
+## [2026-06-23 16:12 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Implement the configuration panel for connection settings (issue #20). Redesigned the config sidebar into an opaque instrument-style panel with collapsible Connection / Processing / Display sections. Built the Connection panel: source name, a WebSocket/MQTT/File source-type selector with conditional fields, a single Connect button with input validation, settings persistence to localStorage, load-on-startup, and auto-reconnect. MQTT fields are present but visual-only (live ingestion deferred to issue #19). Refactored transit.js from a cookie-based, WebSocket-only script into a connection manager (window.MagConnection) emitting the same magread/magclose/magerror events. Anchored the sidebar flush between the header and footer.
+- **Sections/Files Affected**: `index.html` (redesigned `#config` sidebar markup), `css/index.css` (panel/field/segmented/button styles, panel tokens, sidebar anchored in `.layout`), `js/transit.js` (rewritten as connection manager), `js/index.js` (settings.connection default + migration, Connect handler with validation/persistence, source-type switching, collapsible panels, loadLogFile refactor)
+- **Nature of Contribution**: Code generation (feature + refactor)
+- **Human Review Status**: Reviewed and verified (render, collapse, type-switch, validation, WebSocket end-to-end via a fake host, persistence/auto-reconnect, and flush layout all verified via headless-browser rendering)
+- **Git Hash**: [pending]
