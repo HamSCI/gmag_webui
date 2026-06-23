@@ -14,6 +14,7 @@
 (function () {
     const state = document.getElementById("status");
     let ws = null;
+    let mqttClient = null;
     // The URL we currently want to be connected to. Reconnect attempts check
     // against this so a stale socket can't resurrect a connection the user has
     // since changed or closed.
@@ -54,6 +55,11 @@
                 sText.textContent = "File loaded";
                 state.className = "success";
                 ico.className = "fa-solid fa-file-lines";
+                break;
+            case 5:
+                sText.textContent = "Auth failed";
+                state.className = "error";
+                ico.className = "fa-solid fa-user-lock";
                 break;
         }
     }
@@ -104,12 +110,85 @@
         }, rate);
     }
 
-    /** Closes any live socket without flipping the status to "Disconnected". */
+    /**
+     * Connects to an MQTT broker over WebSocket and forwards each message as a
+     * reading. MQTT.js handles its own reconnection.
+     * @param {{ broker: string, topic: string, username?: string,
+     *   password?: string }} cfg the MQTT connection settings
+     */
+    function connectMqtt(cfg) {
+        if (typeof mqtt === "undefined") {
+            console.error("MQTT.js failed to load.");
+            setStatus(2);
+            return;
+        }
+        const { broker, topic, username, password } = cfg;
+        setStatus(0);
+
+        const opts = { reconnectPeriod: 2000 };
+        if (username) {
+            opts.username = username;
+        }
+        if (password) {
+            opts.password = password;
+        }
+        // Set once the broker rejects our credentials, so the retry-driven
+        // "Connecting"/"Disconnected" churn doesn't overwrite the clearer
+        // "Auth failed" status.
+        let authFailed = false;
+        mqttClient = mqtt.connect(broker, opts);
+
+        mqttClient.on("connect", () => {
+            setStatus(1);
+            mqttClient.subscribe(topic, err => {
+                if (err) {
+                    console.log("MQTT subscribe error:", err);
+                }
+            });
+        });
+        mqttClient.on("message", (t, payload) => {
+            try {
+                // Same JSONL reading format as the WebSocket transport.
+                const json = JSON.parse(payload.toString());
+                document.dispatchEvent(new CustomEvent("magread", {
+                    detail: json,
+                }));
+            } catch (e) {
+                console.log("Bad MQTT payload:", e);
+            }
+        });
+        mqttClient.on("reconnect", () => {
+            if (!authFailed) {
+                setStatus(0);
+            }
+        });
+        mqttClient.on("error", e => {
+            console.log("MQTT error:", e);
+            // CONNACK refusal for credentials: 4/5 (MQTT 3.1.1) or
+            // 134/135 (MQTT 5). Stop retrying and surface it clearly.
+            if (e && [4, 5, 134, 135].includes(e.code)) {
+                authFailed = true;
+                setStatus(5);
+                mqttClient.end(true);
+            }
+        });
+        mqttClient.on("offline", () => {
+            if (!authFailed) {
+                setStatus(2);
+            }
+        });
+    }
+
+    /** Closes any live transport without flipping status to "Disconnected". */
     function teardown() {
         activeUrl = null;
         if (ws instanceof WebSocket) {
             ws.close(1000);
             ws = null;
+        }
+        if (mqttClient) {
+            mqttClient.end(true);
+            mqttClient = null;
         }
     }
 
@@ -122,9 +201,7 @@
         if (cfg.type === "websocket") {
             connectWebSocket(cfg.websocket.url);
         } else if (cfg.type === "mqtt") {
-            // Ingestion lands with issue #19; settings are persisted already.
-            console.warn("MQTT transport is not implemented yet.");
-            setStatus(2);
+            connectMqtt(cfg.mqtt);
         }
         // "file" is a one-shot load handled in index.js, not a live transport.
     }
@@ -149,6 +226,8 @@
         const c = saved && saved.connection;
         if (c && c.type === "websocket" && c.websocket && c.websocket.url) {
             connectWebSocket(c.websocket.url);
+        } else if (c && c.type === "mqtt" && c.mqtt && c.mqtt.broker && c.mqtt.topic) {
+            connectMqtt(c.mqtt);
         }
     } catch (e) {
         console.log(e);

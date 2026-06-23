@@ -7,6 +7,7 @@
         <link href="vendor/fontawesome-free-7.1.0-web/css/brands.css" rel="stylesheet" />
         <link href="vendor/fontawesome-free-7.1.0-web/css/solid.css" rel="stylesheet" />
         <script src="vendor/plotly-3.3.0.min.js"></script>
+        <script src="vendor/mqtt.min.js"></script>
         <!--Local Stylesheets-->
         <link href="css/index.css" rel="stylesheet" />
     </head>
@@ -81,10 +82,12 @@
                             <label class="field">
                                 <span class="field-label">Broker URL</span>
                                 <input type="text" id="mqttBroker" class="mono" placeholder="wss://broker:port" />
+                                <span class="field-error" id="mqttBrokerErr"></span>
                             </label>
                             <label class="field">
                                 <span class="field-label">Topic</span>
                                 <input type="text" id="mqttTopic" class="mono" placeholder="magnetometer/data" />
+                                <span class="field-error" id="mqttTopicErr"></span>
                             </label>
                             <label class="field">
                                 <span class="field-label">Username <span class="muted">(optional)</span></span>
@@ -94,7 +97,6 @@
                                 <span class="field-label">Password <span class="muted">(optional)</span></span>
                                 <input type="password" id="mqttPass" class="mono" />
                             </label>
-                            <p class="note"><i class="fa-solid fa-circle-info"></i> MQTT support is coming soon.</p>
                         </div>
                         <!-- File -->
                         <div class="type-fields" data-type="file" hidden>

@@ -48,3 +48,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (feature + refactor)
 - **Human Review Status**: Reviewed and verified (render, collapse, type-switch, validation, WebSocket end-to-end via a fake host, persistence/auto-reconnect, and flush layout all verified via headless-browser rendering)
 - **Git Hash**: cc298a0
+
+## [2026-06-23 16:37 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Implement MQTT-over-WebSocket data ingestion (issue #19). Vendored the MQTT.js 5.15.1 browser bundle and added an MQTT transport to the connection manager: connects to a broker over WebSocket, subscribes to a topic, parses each message in the same JSONL reading format and dispatches `magread`, with optional username/password authentication and MQTT.js-driven reconnection. Wired the Connect handler to validate the broker URL and topic, and added a dedicated "Auth failed" connection status that surfaces (and stops retrying) when the broker rejects credentials. Switching between WebSocket and MQTT sources works.
+- **Sections/Files Affected**: `vendor/mqtt.min.js` (new — vendored MQTT.js 5.15.1), `index.html` (load mqtt.min.js; MQTT broker/topic validation slots; removed the "coming soon" note), `js/transit.js` (MQTT transport in the connection manager, auth-failed status, teardown + auto-connect for MQTT), `js/index.js` (MQTT broker/topic validation and connect wiring)
+- **Nature of Contribution**: Code generation (feature) + dependency vendoring
+- **Human Review Status**: Reviewed and verified (MQTT connect/receive/render, broker+topic validation, WebSocket↔MQTT switching, no-regression on WebSocket, and authentication accept/reject — all verified via headless browser against local aedes MQTT-over-WS brokers, including a credential-required broker)
+- **Git Hash**: [pending]

@@ -561,6 +561,8 @@ const mqttBroker = document.getElementById("mqttBroker");
 const mqttTopic = document.getElementById("mqttTopic");
 const mqttUser = document.getElementById("mqttUser");
 const mqttPass = document.getElementById("mqttPass");
+const mqttBrokerErr = document.getElementById("mqttBrokerErr");
+const mqttTopicErr = document.getElementById("mqttTopicErr");
 const logfile = document.getElementById("logfile");
 const fileErr = document.getElementById("fileErr");
 const connectBtn = document.getElementById("connectBtn");
@@ -593,6 +595,8 @@ typeButtons.forEach(btn => {
         settings.connection.type = btn.name;
         saveSettings();
         wsUrlErr.textContent = "";
+        mqttBrokerErr.textContent = "";
+        mqttTopicErr.textContent = "";
         fileErr.textContent = "";
         showTypeFields(btn.name);
     });
@@ -600,6 +604,8 @@ typeButtons.forEach(btn => {
 
 // Clear validation messages as the user edits.
 wsUrl.addEventListener("input", () => { wsUrlErr.textContent = ""; });
+mqttBroker.addEventListener("input", () => { mqttBrokerErr.textContent = ""; });
+mqttTopic.addEventListener("input", () => { mqttTopicErr.textContent = ""; });
 logfile.addEventListener("change", () => { fileErr.textContent = ""; });
 
 /**
@@ -635,9 +641,20 @@ connectBtn.addEventListener("click", () => {
         saveSettings();
         window.MagConnection.connect(settings.connection);
     } else if (type === "mqtt") {
-        // Settings persist now; live ingestion arrives with issue #19.
+        let ok = true;
+        if (!isValidWsUrl(settings.connection.mqtt.broker)) {
+            mqttBrokerErr.textContent = "Enter a ws:// or wss:// broker URL.";
+            ok = false;
+        }
+        if (!settings.connection.mqtt.topic) {
+            mqttTopicErr.textContent = "Enter a topic.";
+            ok = false;
+        }
+        if (!ok) {
+            return;
+        }
         saveSettings();
-        alert("MQTT support is coming soon. Your settings have been saved.");
+        window.MagConnection.connect(settings.connection);
     } else if (type === "file") {
         if (!logfile.files || logfile.files.length === 0) {
             fileErr.textContent = "Choose a .log file first.";
