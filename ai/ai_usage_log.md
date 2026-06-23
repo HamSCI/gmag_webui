@@ -47,4 +47,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `index.html` (redesigned `#config` sidebar markup), `css/index.css` (panel/field/segmented/button styles, panel tokens, sidebar anchored in `.layout`), `js/transit.js` (rewritten as connection manager), `js/index.js` (settings.connection default + migration, Connect handler with validation/persistence, source-type switching, collapsible panels, loadLogFile refactor)
 - **Nature of Contribution**: Code generation (feature + refactor)
 - **Human Review Status**: Reviewed and verified (render, collapse, type-switch, validation, WebSocket end-to-end via a fake host, persistence/auto-reconnect, and flush layout all verified via headless-browser rendering)
-- **Git Hash**: [pending]
+- **Git Hash**: cc298a0
