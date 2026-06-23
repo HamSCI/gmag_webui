@@ -55,4 +55,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `vendor/mqtt.min.js` (new — vendored MQTT.js 5.15.1), `index.html` (load mqtt.min.js; MQTT broker/topic validation slots; removed the "coming soon" note), `js/transit.js` (MQTT transport in the connection manager, auth-failed status, teardown + auto-connect for MQTT), `js/index.js` (MQTT broker/topic validation and connect wiring)
 - **Nature of Contribution**: Code generation (feature) + dependency vendoring
 - **Human Review Status**: Reviewed and verified (MQTT connect/receive/render, broker+topic validation, WebSocket↔MQTT switching, no-regression on WebSocket, and authentication accept/reject — all verified via headless browser against local aedes MQTT-over-WS brokers, including a credential-required broker)
-- **Git Hash**: [pending]
+- **Git Hash**: f51c54a
