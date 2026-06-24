@@ -71,4 +71,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `index.html` (replaced the commented tabber scaffold with the live tab bar markup), `css/index.css` (tab bar styling; wordmark no longer flex-grows), `js/index.js` (tab management: render/add/switch/close + per-tab status; background-buffering reading routing; active-session redraw with deep-cloned per-source layout, purge+newPlot, and per-source uirevision)
 - **Nature of Contribution**: Code generation (feature + bug fix)
 - **Human Review Status**: Reviewed and verified (create/switch/close multiple tabs, two independent live sources with background buffering, persistence + reconnect-all on reload, and a clean switch to an empty source — all verified via headless browser against two local fake hosts)
-- **Git Hash**: [pending]
+- **Git Hash**: 66813ae
