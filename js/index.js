@@ -15,6 +15,7 @@ const timeRanges = {
 const PLOTS_BUF_MAX = 3600; // 1 hour max buffer
 const SPARK_BUF_MAX = 100;
 const SL_BUCKET_MAX = 10;
+const MAX_SOURCES = 6; // tab cap, for performance
 
 // Main-plot trace indices. The raw H/E/Z/Magnitude/Temperature series occupy
 // 0-4; the moving-average overlay series mirror them at 5-9 (see plots.json).
@@ -26,103 +27,152 @@ const FILTER_WINDOWS = [10, 30, 60];
 // smoothed lines read as the primary signal without hiding the raw data.
 const RAW_FADED_OPACITY = 0.25;
 
-// Check for previously saved settings. Init defaults if not found.
-if (window.localStorage.getItem("settings") === null) {
-    window.localStorage.setItem("settings", JSON.stringify({
-        inHEZ: true,
-        displayWindow: "1h",
-        transform: { x: 0, y: 0, z: 0 },
-        filter: { enabled: false, windowSec: 60 },
-        connection: {
-            name: "",
-            type: "websocket",
-            websocket: { url: "" },
-            mqtt: { broker: "", topic: "", username: "", password: "" },
-        },
-        // This is future proofing for the tabber system later.
-        sources: [
-            {
-                name: "Untitled",
-                type: "Unknown",
-                url: "",
-            },
-        ],
-    }));
+// ----------------------------------------------------------------------------
+// Settings (persisted)
+// ----------------------------------------------------------------------------
+// Moving average and time window are shared across all sources; each source
+// (tab) owns its own connection config and coordinate transform.
+
+/** @returns {string} a unique id (falls back when crypto is unavailable) */
+function uid() {
+    if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+    return "s-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-/** @type {DashSettings} */
-const settings = JSON.parse(window.localStorage.getItem("settings"));
-
-// Migrate settings saved before the moving-average filter existed.
-if (!settings.filter) {
-    settings.filter = { enabled: false, windowSec: 60 };
-}
-// Migrate settings saved before the connection panel existed.
-if (!settings.connection) {
-    settings.connection = {
-        name: "",
+/**
+ * @param {string} [name]
+ * @returns {Source} a blank source with default settings
+ */
+function makeSource(name = "Source 1") {
+    return {
+        id: uid(),
+        name,
         type: "websocket",
         websocket: { url: "" },
         mqtt: { broker: "", topic: "", username: "", password: "" },
+        transform: { x: 0, y: 0, z: 0 },
     };
 }
+
+/** @returns {DashSettings} */
+function defaultSettings() {
+    const src = makeSource();
+    return {
+        displayWindow: "1h",
+        filter: { enabled: false, windowSec: 60 },
+        sources: [src],
+        activeSourceId: src.id,
+    };
+}
+
+/**
+ * Normalizes older settings shapes (single connection + global transform) into
+ * the sources[] model so existing users keep their saved source.
+ * @param {any} s
+ */
+function migrateSettings(s) {
+    if (!s.filter) {
+        s.filter = { enabled: false, windowSec: 60 };
+    }
+    if (!s.displayWindow) {
+        s.displayWindow = "1h";
+    }
+    const hasSources = Array.isArray(s.sources) && s.sources.length > 0 &&
+        s.sources[0] && s.sources[0].id;
+    if (!hasSources) {
+        const old = s.connection || {};
+        s.sources = [{
+            id: uid(),
+            name: old.name || "Source 1",
+            type: old.type || "websocket",
+            websocket: { url: (old.websocket && old.websocket.url) || "" },
+            mqtt: {
+                broker: (old.mqtt && old.mqtt.broker) || "",
+                topic: (old.mqtt && old.mqtt.topic) || "",
+                username: (old.mqtt && old.mqtt.username) || "",
+                password: (old.mqtt && old.mqtt.password) || "",
+            },
+            transform: s.transform || { x: 0, y: 0, z: 0 },
+        }];
+        s.activeSourceId = s.sources[0].id;
+    }
+    if (!s.activeSourceId || !s.sources.some(x => x.id === s.activeSourceId)) {
+        s.activeSourceId = s.sources[0].id;
+    }
+    // Drop obsolete top-level keys from the pre-tabs model.
+    delete s.connection;
+    delete s.transform;
+    delete s.inHEZ;
+}
+
+/** @type {DashSettings} */
+let settings;
+try {
+    settings = JSON.parse(window.localStorage.getItem("settings"));
+} catch (e) {
+    settings = null;
+}
+if (!settings) {
+    settings = defaultSettings();
+}
+migrateSettings(settings);
 
 function saveSettings() {
     window.localStorage.setItem("settings", JSON.stringify(settings));
 }
+saveSettings(); // persist the normalized shape
 
-// Load the user's settings
-const timeSelect = document.getElementById("timerange");
-timeSelect.value = settings.displayWindow;
+/** @param {string} id @returns {Source|undefined} */
+function getSource(id) {
+    return settings.sources.find(s => s.id === id);
+}
+/** @returns {Source} */
+function activeSource() {
+    return getSource(settings.activeSourceId);
+}
 
-const rotX = document.getElementById("rotX");
-const rotY = document.getElementById("rotY");
-const rotZ = document.getElementById("rotZ");
-rotX.value = settings.transform.x;
-rotY.value = settings.transform.y;
-rotZ.value = settings.transform.z;
-
-const xDel = document.getElementById("xDelta");
-const yDel = document.getElementById("yDelta");
-const zDel = document.getElementById("zDelta");
-xDel.textContent = rotX.value;
-yDel.textContent = rotY.value;
-zDel.textContent = rotZ.value;
-
-// Repopulate the tabber with the user's data sources
-// const tabs = document.getElementById("tabs");
-// let activeTab = 0;
-// if (settings.sources.length > 0) {
-//     const template = document.getElementById("srcTab");
-//     for (const source of settings.sources) {
-//         const clone = document.importNode(template.content, true);
-//         const tabName = clone.querySelector(".tab-name");
-//         tabName.textContent = source.name;
-//         const tabIco = clone.querySelector(".tab-ico > i");
-//         if (source.type === "Live") {
-//             tabIco.className = "fa-solid fa-server";
-//         } else if (source.type === "Static") {
-//             tabIco.className = "fa-solid fa-file";
-//         }
-//         tabs.appendChild(clone);
-//         console.log(`Loaded ${source.type} source ${source.name}`);
-//     }
-// }
-
-/** @type {Measurement[]} */
-const measurements = [];
+// ----------------------------------------------------------------------------
+// Sessions (runtime state, one per source — not persisted)
+// ----------------------------------------------------------------------------
 
 /**
- * @type {Measurement[]}
- * For performance, we'll only keep up to 100 samples at a time.
+ * @typedef {object} Session
+ * @prop {string} id
+ * @prop {Measurement[]} measurements
+ * @prop {Measurement[]} sparklines
+ * @prop {Measurement[]} sBucket
+ * @prop {?object} connection live MagConnection instance, or null
+ * @prop {number} status last status code (0-5)
  */
-const sparklines = [];
-/**
- * @type {Measurement[]}
- * This gets cleared every 10 samples.
- */
-const sBucket = [];
 
+/** @type {Map<string, Session>} */
+const sessions = new Map();
+
+/** @param {Source} source @returns {Session} */
+function makeSession(source) {
+    return {
+        id: source.id,
+        measurements: [],
+        sparklines: [],
+        sBucket: [],
+        connection: null,
+        status: 2,
+    };
+}
+/** @returns {Session} */
+function activeSession() {
+    return sessions.get(settings.activeSourceId);
+}
+
+for (const src of settings.sources) {
+    sessions.set(src.id, makeSession(src));
+}
+
+// ----------------------------------------------------------------------------
+// Plots
+// ----------------------------------------------------------------------------
 const plotsDiv = document.getElementById("plots");
 Plotly.newPlot(plotsDiv, plotsInit.traces, plotsInit.layout, plotsInit.config);
 
@@ -133,12 +183,12 @@ let autofollow = true;
 let updateLock = false;
 
 /**
- * Applies the saved coordinate transform to a measurement's HEZ vector.
+ * Applies the active source's coordinate transform to a measurement's HEZ.
  * @param {Measurement} m
  * @returns {Vector} the rotated HEZ vector ready for display
  */
 function rotatedHEZ(m) {
-    const { transform: { x, y, z } } = settings;
+    const { x, y, z } = activeSource().transform;
     return m.HEZ
         .rotate("x", x, false)
         .rotate("y", y, false)
@@ -155,12 +205,11 @@ function resetPlots() {
 
 /**
  * Recomputes the moving-average overlay (H, E, Z, Magnitude, Temperature) from
- * the current raw buffer and redraws traces 5-9 in a single restyle. Used when
- * the whole series must be rebuilt at once (toggle on, window change, rotation
- * change, file load).
+ * the active source's buffer and redraws traces 5-9 in a single restyle.
  */
 function recomputeFiltered() {
-    const smoothed = movingAverage(measurements, settings.filter.windowSec);
+    const smoothed = movingAverage(
+        activeSession().measurements, settings.filter.windowSec);
     const x = smoothed.map(m => m.ts);
     const vectors = smoothed.map(rotatedHEZ);
     Plotly.restyle(plotsDiv, {
@@ -188,16 +237,15 @@ function syncFilterVisual() {
 
 /** Rebuilds the overlay data (when enabled) and syncs its visibility. */
 function refreshFilter() {
-    if (settings.filter.enabled && measurements.length > 0) {
+    if (settings.filter.enabled && activeSession().measurements.length > 0) {
         recomputeFiltered();
     }
     syncFilterVisual();
 }
 
 function updateCoordGraphs() {
-    const vectors = measurements.map(rotatedHEZ);
-    // Only the coordinate graphs actually change. The magnitude will remain
-    // the same.
+    const vectors = activeSession().measurements.map(rotatedHEZ);
+    // Only the coordinate graphs actually change; magnitude is rotation-invariant.
     /** @type {[0, 1, 2]} */
     const traces = [0, 1, 2];
     Plotly.restyle(plotsDiv, {
@@ -209,81 +257,12 @@ function updateCoordGraphs() {
     }
 }
 
-// Toggle sidebar
-const sideToggle = document.getElementById("sideToggle");
-sideToggle.addEventListener("click", ev => {
-    const sidebar = document.getElementById("config");
-
-    // Adjust the layout to account for missing element.
-    if (sideToggle.classList.contains("fa-xmark")) {
-        sidebar.style.transform = "translateX(-100%)";
-    } else {
-        sidebar.style.transform = "translateX(0)";
-    }
-
-    sideToggle.classList.toggle("fa-bars");
-    sideToggle.classList.toggle("fa-xmark");
-});
-
-// Set rotation deltas
-// TODO: Add some indication that the rotation isn't saved?
-rotX.addEventListener("input", ev => {
-    xDel.textContent = ev.target.value;
-});
-rotY.addEventListener("input", ev => {
-    yDel.textContent = ev.target.value;
-});
-rotZ.addEventListener("input", ev => {
-    zDel.textContent = ev.target.value;
-});
-document.getElementById("saveRot").addEventListener("click", ev => {
-    settings.transform.x = rotX.value;
-    settings.transform.y = rotY.value;
-    settings.transform.z = rotZ.value;
-    saveSettings();
-    updateCoordGraphs();
-    rebuildSpreadsheet();
-});
-
-// Moving-average filter controls
-const filterGroup = document.getElementById("filterGroup");
-const filterWindow = document.getElementById("filterWindow");
-const filterOff = filterGroup.querySelector('button[name="off"]');
-const filterOn = filterGroup.querySelector('button[name="on"]');
-
-// Load the saved filter state into the controls. The active button in a
-// select-group is shown by disabling it (see .select-group:disabled in CSS).
-filterWindow.value = String(settings.filter.windowSec);
-filterOff.disabled = !settings.filter.enabled;
-filterOn.disabled = settings.filter.enabled;
-// Apply the saved filter to the freshly created plot so a refresh with the
-// filter enabled shows the overlay (and faded raw) instead of a hidden one.
-refreshFilter();
-
-/** @param {boolean} enabled */
-function setFilterEnabled(enabled) {
-    settings.filter.enabled = enabled;
-    saveSettings();
-    filterOff.disabled = !enabled;
-    filterOn.disabled = enabled;
-    refreshFilter();
-}
-
-filterOff.addEventListener("click", () => setFilterEnabled(false));
-filterOn.addEventListener("click", () => setFilterEnabled(true));
-
-filterWindow.addEventListener("change", ev => {
-    const windowSec = parseInt(ev.target.value, 10);
-    if (!FILTER_WINDOWS.includes(windowSec)) return;
-    settings.filter.windowSec = windowSec;
-    saveSettings();
-    if (settings.filter.enabled) {
-        recomputeFiltered();
-    }
-});
-
 function updateRange() {
-    const { ts: latest } = measurements[measurements.length - 1];
+    const ms = activeSession().measurements;
+    if (ms.length === 0) {
+        return;
+    }
+    const { ts: latest } = ms[ms.length - 1];
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
     const latestDiff = new Date(latest.getTime() - (seconds * 1000));
     try {
@@ -299,16 +278,8 @@ function updateRange() {
     } catch (e) {}
 }
 
-timeSelect.addEventListener("change", ev => {
-    const newRange = ev.target.value;
-    settings.displayWindow = newRange;
-    saveSettings();
-    autofollow = true;
-    updateRange();
-});
-
 /**
- *
+ * Appends one reading to the active plots (raw, plus the overlay if enabled).
  * @param {Measurement} measurement
  */
 function extendAllTraces(measurement) {
@@ -328,8 +299,9 @@ function extendAllTraces(measurement) {
     // A trailing moving average is causal, so each smoothed point is final once
     // computed: we can append the newest one rather than rebuilding the series.
     if (settings.filter.enabled) {
+        const ms = activeSession().measurements;
         const smoothed = trailingAverageAt(
-            measurements, measurements.length - 1, settings.filter.windowSec);
+            ms, ms.length - 1, settings.filter.windowSec);
         const filtVec = rotatedHEZ(smoothed);
         Plotly.extendTraces(plotsDiv, {
             x: [[ts], [ts], [ts], [ts], [ts]],
@@ -345,23 +317,23 @@ function extendAllTraces(measurement) {
 }
 
 function updateSparks() {
-    while (sparklines.length > SPARK_BUF_MAX) {
-        sparklines.shift();
+    const session = activeSession();
+    while (session.sparklines.length > SPARK_BUF_MAX) {
+        session.sparklines.shift();
     }
-    const newSlTraces = buildSparklineTraces(sparklines);
+    const newSlTraces = buildSparklineTraces(session.sparklines);
     Plotly.react(sparkDiv, newSlTraces, slInit.layout, slInit.config);
 }
 
 /**
- * Builds the spreadsheet table row for a measurement, applying the current
- * coordinate transform. The moving-average filter intentionally does not affect
- * the spreadsheet — it always shows the rotated raw reading.
+ * Builds the spreadsheet table row for a measurement, applying the active
+ * source's coordinate transform. The moving-average filter intentionally does
+ * not affect the spreadsheet — it always shows the rotated raw reading.
  * @param {Measurement} measurement
  * @returns {string} the `<tr>` markup for this measurement
  */
 function spreadsheetRowHTML(measurement) {
-    // Reformat the date for the spreadsheet. Specifically, we want this to be
-    // in local time on the client end for their convenience.
+    // Local time on the client end, for the operator's convenience.
     const date = new Intl.DateTimeFormat("en-US", {
         hour12: false,
         month: "numeric",
@@ -372,7 +344,6 @@ function spreadsheetRowHTML(measurement) {
         second: "2-digit"
     }).format(measurement.ts);
 
-    // Apply coordinate system and transform deltas
     const dispVector = rotatedHEZ(measurement);
 
     return `
@@ -396,117 +367,282 @@ function addSpreadsheetRow(measurement) {
     // TODO: Remove last row once we're at max buffer size?
 }
 
-/**
- * Rebuilds every spreadsheet row from the buffered measurements. Used when the
- * coordinate transform changes so that existing rows reflect it too, not just
- * rows added afterward.
- */
+/** Rebuilds every spreadsheet row from the active source's buffer. */
 function rebuildSpreadsheet() {
     // measurements run oldest -> newest, but the table shows newest at the top.
     document.querySelector("#spreadsheet table tbody").innerHTML =
-        measurements.map(spreadsheetRowHTML).reverse().join("");
+        activeSession().measurements.map(spreadsheetRowHTML).reverse().join("");
 }
 
 /**
- *
  * @param {Measurement} m
  */
 function updateCurrentTable(m) {
-    const h = document.getElementById("h");
-    const e = document.getElementById("e");
-    const z = document.getElementById("z");
-    const magnitude = document.getElementById("mag");
-    const temperature = document.getElementById("temp");
-
     const dispVec = rotatedHEZ(m);
+    document.getElementById("h").textContent = dispVec[0].toFixed(3);
+    document.getElementById("e").textContent = dispVec[1].toFixed(3);
+    document.getElementById("z").textContent = dispVec[2].toFixed(3);
+    document.getElementById("mag").textContent = m.HEZ.magnitude.toFixed(3);
+    document.getElementById("temp").textContent = m.celsius.toFixed(2);
+}
 
-    h.textContent = dispVec[0].toFixed(3);
-    e.textContent = dispVec[1].toFixed(3);
-    z.textContent = dispVec[2].toFixed(3);
-    magnitude.textContent = m.HEZ.magnitude.toFixed(3);
-    temperature.textContent = m.celsius.toFixed(2);
+// ----------------------------------------------------------------------------
+// Connection status (header indicator)
+// ----------------------------------------------------------------------------
+const statusEl = document.getElementById("status");
+
+/**
+ * Sets the header connection status indicator.
+ * @param {number} s 0 connecting, 1 connected, 2 disconnected,
+ *   3 failed/retrying, 4 file loaded, 5 auth failed
+ * @param {number} [retry=0] retry count, shown for the failed state
+ */
+function setHeaderStatus(s, retry = 0) {
+    const [sText] = statusEl.getElementsByTagName("span");
+    const [ico] = statusEl.getElementsByTagName("i");
+    switch (s) {
+        case 0:
+            sText.textContent = "Connecting";
+            statusEl.className = "wait";
+            ico.className = "fa-solid fa-arrows-rotate";
+            break;
+        case 1:
+            sText.textContent = "Connected";
+            statusEl.className = "success";
+            ico.className = "fa-solid fa-signal";
+            break;
+        case 2:
+            sText.textContent = "Disconnected";
+            statusEl.className = "error";
+            ico.className = "fa-solid fa-circle-xmark";
+            break;
+        case 3:
+            sText.textContent = `Failed (${retry})`;
+            statusEl.className = "warn";
+            ico.className = "fa-solid fa-triangle-exclamation";
+            break;
+        case 4:
+            sText.textContent = "File loaded";
+            statusEl.className = "success";
+            ico.className = "fa-solid fa-file-lines";
+            break;
+        case 5:
+            sText.textContent = "Auth failed";
+            statusEl.className = "error";
+            ico.className = "fa-solid fa-user-lock";
+            break;
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Ingestion + connection routing
+// ----------------------------------------------------------------------------
+
+/**
+ * Buffers one reading into a session (capping the buffers and aggregating the
+ * sparkline bucket). DOM is untouched; the caller renders if it's active.
+ * @param {Session} session
+ * @param {Measurement} m
+ * @returns {boolean} whether a new sparkline aggregate was produced
+ */
+function ingest(session, m) {
+    session.measurements.push(m);
+    while (session.measurements.length > PLOTS_BUF_MAX) {
+        session.measurements.shift();
+    }
+    session.sBucket.push(m);
+    if (session.sBucket.length >= SL_BUCKET_MAX) {
+        session.sparklines.push(reduceBucket(session.sBucket));
+        session.sBucket.length = 0;
+        while (session.sparklines.length > SPARK_BUF_MAX) {
+            session.sparklines.shift();
+        }
+        return true;
+    }
+    return false;
 }
 
 /**
- * Callback handler for each magnetometer reading.
- * @param {CustomEvent<MagUsbJson>} ev
+ * Handles a reading from a given source. Always buffers it; only renders when
+ * the source is the active tab.
+ * @param {string} id source id
+ * @param {MagUsbJson} json
  */
-function onMagRead(ev) {
-    // Extract the JSON attributes and convert to in-house object. This will
-    // allow us to do common operations much easier.
-    const { detail: { ts, rt: tmp, x, y, z } } = ev;
-    const measurement = new Measurement(ts, tmp, x, y, z);
-    // The table is currently unreadable with the raw values. This scale is
-    // just temporary until we reach a better solution.
-    // measurement.setScale(1/1000);
-
-    // A zero reading on rt is a host problem, not a dashboard problem. We
-    // should alert the client of the problem and then kill the connection.
-    if (!measurement.celsius &&
-        measurement.XYZ.equals(measurements[measurements.length - 1].XYZ)) {
-        document.dispatchEvent(new CustomEvent("magerror", {
-            detail: {
-                message: "Hardware Error:\n" +
-                "The magnetometer was disconnected from the host. Check the " +
-                "host machine and the magnetometer for faulty cabling. " +
-                "Restart mag-usb after the problem is resolved."
-            },
-        }));
+function handleReading(id, json) {
+    const session = sessions.get(id);
+    if (!session) {
+        return;
+    }
+    const { ts, rt: tmp, x, y, z } = json;
+    let measurement;
+    try {
+        measurement = new Measurement(ts, tmp, x, y, z);
+    } catch (e) {
+        console.log("Bad reading:", e);
         return;
     }
 
-    measurements.push(measurement);
-    while (measurements.length > PLOTS_BUF_MAX) {
-        measurements.shift();
+    // A zero reading on rt that repeats the previous field is a host problem,
+    // not a dashboard problem: alert and drop the connection.
+    const last = session.measurements[session.measurements.length - 1];
+    if (!measurement.celsius && last && measurement.XYZ.equals(last.XYZ)) {
+        handleHardwareError(session);
+        return;
     }
-    sBucket.push(measurement);
-    addSpreadsheetRow(measurement);
-    updateCurrentTable(measurement);
-    extendAllTraces(measurement);
-    if (sBucket.length >= SL_BUCKET_MAX) {
-        const bAgg = reduceBucket(sBucket);
-        sBucket.length = 0;
-        sparklines.push(bAgg);
-        updateSparks();
-    }
-    if (autofollow) {
-        updateLock = true;
-        updateRange();
-        updateLock = false;
+
+    const newSpark = ingest(session, measurement);
+    if (id === settings.activeSourceId) {
+        addSpreadsheetRow(measurement);
+        updateCurrentTable(measurement);
+        extendAllTraces(measurement);
+        if (newSpark) {
+            updateSparks();
+        }
+        if (autofollow) {
+            updateLock = true;
+            updateRange();
+            updateLock = false;
+        }
     }
 }
 
-document.addEventListener("magread", onMagRead);
-plotsDiv.on("plotly_relayout", ev => {
-    if (!updateLock && (
-        "xaxis.range[0]" in ev &&
-        "xaxis.range[1]" in ev
-    )) {
-        autofollow = false;
-        console.log("autofollow disabled");
+/**
+ * @param {string} id source id
+ * @param {number} code status code
+ * @param {number} [retry]
+ */
+function handleStatus(id, code, retry) {
+    const session = sessions.get(id);
+    if (session) {
+        session.status = code;
     }
-});
-plotsDiv.on("plotly_doubleclick", ev => {
-    autofollow = true;
-    updateLock = true;
-    updateRange();
-    updateLock = false;
-});
+    if (id === settings.activeSourceId) {
+        setHeaderStatus(code, retry);
+    }
+    // Phase B: reflect status on the source's tab.
+}
 
-// Reset the graphs and clear the spreadsheet
-document.addEventListener("magclose", ev => {
+/** @param {Session} session */
+function handleHardwareError(session) {
+    alert(
+        "Hardware Error:\n" +
+        "The magnetometer was disconnected from the host. Check the host " +
+        "machine and the magnetometer for faulty cabling. Restart mag-usb " +
+        "after the problem is resolved.");
+    if (session.connection) {
+        session.connection.disconnect();
+    }
+}
+
+/** @param {string} id @returns {{onReading: function, onStatus: function}} */
+function connectionHandlers(id) {
+    return {
+        onReading: json => handleReading(id, json),
+        onStatus: (code, retry) => handleStatus(id, code, retry),
+    };
+}
+
+/**
+ * @param {Source} src
+ * @returns {boolean} whether the source has enough config to connect live
+ */
+function isConfigured(src) {
+    if (src.type === "websocket") {
+        return isValidWsUrl(src.websocket.url);
+    }
+    if (src.type === "mqtt") {
+        return isValidWsUrl(src.mqtt.broker) && !!src.mqtt.topic;
+    }
+    return false; // file: no live transport
+}
+
+/**
+ * Opens (or reopens) the live transport for a session's source. No-op for file
+ * sources or sources that aren't configured yet.
+ * @param {Session} session
+ */
+function connectSession(session) {
+    const src = getSource(session.id);
+    if (!src || !isConfigured(src)) {
+        if (session.id === settings.activeSourceId) {
+            setHeaderStatus(session.status);
+        }
+        return;
+    }
+    if (session.connection) {
+        session.connection.disconnect();
+    }
+    session.connection = window.MagConnection.create(
+        src, connectionHandlers(session.id));
+    session.connection.connect();
+}
+
+/** Clears the shared view (spreadsheet + plots) for the active source. */
+function clearActiveView() {
     document.querySelector("#spreadsheet table tbody").innerHTML = "";
-    measurements.length = 0;
-    sparklines.length = 0;
-    sBucket.length = 0;
     resetPlots();
     // resetPlots() restores the overlay traces to their hidden default, so
     // re-apply the fade/visibility that matches the current filter setting.
     syncFilterVisual();
-});
+}
 
 /**
- * Loads a JSONL .log file into the dashboard, replacing the current buffer.
+ * Empties a session's buffers (e.g. before a fresh connection). Also clears the
+ * shared view when the session is active.
+ * @param {Session} session
+ */
+function clearSession(session) {
+    session.measurements.length = 0;
+    session.sparklines.length = 0;
+    session.sBucket.length = 0;
+    if (session.id === settings.activeSourceId) {
+        clearActiveView();
+    }
+}
+
+/** Renders the full active session into the shared view (used on tab switch). */
+function renderActive() {
+    const session = activeSession();
+    const ms = session.measurements;
+
+    resetPlots();
+    document.querySelector("#spreadsheet table tbody").innerHTML = "";
+
+    if (ms.length > 0) {
+        const times = ms.map(m => m.ts);
+        const vecs = ms.map(rotatedHEZ);
+        Plotly.update(plotsDiv, {
+            x: [times, times, times, times, times],
+            y: [
+                vecs.map(v => v[0]),
+                vecs.map(v => v[1]),
+                vecs.map(v => v[2]),
+                vecs.map(v => parseFloat(v.magnitude.toFixed(3))),
+                ms.map(m => m.celsius),
+            ],
+        }, {}, RAW_TRACES);
+        rebuildSpreadsheet();
+        updateCurrentTable(ms[ms.length - 1]);
+    } else {
+        document.getElementById("h").textContent = "-";
+        document.getElementById("e").textContent = "-";
+        document.getElementById("z").textContent = "-";
+        document.getElementById("mag").textContent = "-";
+        document.getElementById("temp").textContent = "-";
+    }
+    refreshFilter();
+    if (session.sparklines.length > 0) {
+        updateSparks();
+    }
+    setHeaderStatus(session.status);
+    autofollow = true;
+    updateLock = true;
+    updateRange();
+    updateLock = false;
+}
+
+/**
+ * Loads a JSONL .log file into the active session, replacing its buffer.
  * @param {File} file the .log file selected by the user
  * @returns {Promise<void>} resolves once the plot is updated
  */
@@ -531,28 +667,133 @@ function loadLogFile(file) {
             console.log(`Loaded ${file.name}`);
             return logs;
         }).then(logs => {
-            measurements.length = 0;
-            measurements.push(...logs);
+            const session = activeSession();
+            session.measurements = logs;
+            session.sparklines.length = 0;
+            session.sBucket.length = 0;
+
+            resetPlots();
+            document.querySelector("#spreadsheet table tbody").innerHTML = "";
             const times = logs.map(({ ts }) => ts);
+            const vecs = logs.map(rotatedHEZ);
             Plotly.update(plotsDiv, {
                 x: [times, times, times, times, times],
                 y: [
-                    logs.map(({ HEZ }) => HEZ[0]),
-                    logs.map(({ HEZ }) => HEZ[1]),
-                    logs.map(({ HEZ }) => HEZ[2]),
-                    logs.map(({ HEZ }) => HEZ.magnitude),
+                    vecs.map(v => v[0]),
+                    vecs.map(v => v[1]),
+                    vecs.map(v => v[2]),
+                    vecs.map(v => parseFloat(v.magnitude.toFixed(3))),
                     logs.map(m => m.celsius),
                 ]
             }, {
                 "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts],
-            }, [0, 1, 2, 3, 4]);
-            // Rebuild the moving-average overlay for the freshly loaded data.
+            }, RAW_TRACES);
             refreshFilter();
-            window.MagConnection.setStatus(4);
+            session.status = 4;
+            setHeaderStatus(4);
         });
 }
 
-// --- Connection panel (issue #20) ---
+// ----------------------------------------------------------------------------
+// Sidebar: toggle
+// ----------------------------------------------------------------------------
+const sideToggle = document.getElementById("sideToggle");
+sideToggle.addEventListener("click", () => {
+    const sidebar = document.getElementById("config");
+    if (sideToggle.classList.contains("fa-xmark")) {
+        sidebar.style.transform = "translateX(-100%)";
+    } else {
+        sidebar.style.transform = "translateX(0)";
+    }
+    sideToggle.classList.toggle("fa-bars");
+    sideToggle.classList.toggle("fa-xmark");
+});
+
+// ----------------------------------------------------------------------------
+// Processing: rotation (per source)
+// ----------------------------------------------------------------------------
+const rotX = document.getElementById("rotX");
+const rotY = document.getElementById("rotY");
+const rotZ = document.getElementById("rotZ");
+const xDel = document.getElementById("xDelta");
+const yDel = document.getElementById("yDelta");
+const zDel = document.getElementById("zDelta");
+
+/** Loads a source's transform into the rotation sliders. @param {Source} src */
+function loadRotation(src) {
+    rotX.value = src.transform.x;
+    rotY.value = src.transform.y;
+    rotZ.value = src.transform.z;
+    xDel.textContent = rotX.value;
+    yDel.textContent = rotY.value;
+    zDel.textContent = rotZ.value;
+}
+
+rotX.addEventListener("input", ev => { xDel.textContent = ev.target.value; });
+rotY.addEventListener("input", ev => { yDel.textContent = ev.target.value; });
+rotZ.addEventListener("input", ev => { zDel.textContent = ev.target.value; });
+
+document.getElementById("saveRot").addEventListener("click", () => {
+    const src = activeSource();
+    src.transform.x = parseInt(rotX.value, 10);
+    src.transform.y = parseInt(rotY.value, 10);
+    src.transform.z = parseInt(rotZ.value, 10);
+    saveSettings();
+    updateCoordGraphs();
+    rebuildSpreadsheet();
+});
+
+// ----------------------------------------------------------------------------
+// Processing: moving-average filter (shared)
+// ----------------------------------------------------------------------------
+const filterGroup = document.getElementById("filterGroup");
+const filterWindow = document.getElementById("filterWindow");
+const filterOff = filterGroup.querySelector('button[name="off"]');
+const filterOn = filterGroup.querySelector('button[name="on"]');
+
+filterWindow.value = String(settings.filter.windowSec);
+filterOff.disabled = !settings.filter.enabled;
+filterOn.disabled = settings.filter.enabled;
+
+/** @param {boolean} enabled */
+function setFilterEnabled(enabled) {
+    settings.filter.enabled = enabled;
+    saveSettings();
+    filterOff.disabled = !enabled;
+    filterOn.disabled = enabled;
+    refreshFilter();
+}
+
+filterOff.addEventListener("click", () => setFilterEnabled(false));
+filterOn.addEventListener("click", () => setFilterEnabled(true));
+
+filterWindow.addEventListener("change", ev => {
+    const windowSec = parseInt(ev.target.value, 10);
+    if (!FILTER_WINDOWS.includes(windowSec)) {
+        return;
+    }
+    settings.filter.windowSec = windowSec;
+    saveSettings();
+    if (settings.filter.enabled) {
+        recomputeFiltered();
+    }
+});
+
+// ----------------------------------------------------------------------------
+// Display: time window (shared)
+// ----------------------------------------------------------------------------
+const timeSelect = document.getElementById("timerange");
+timeSelect.value = settings.displayWindow;
+timeSelect.addEventListener("change", ev => {
+    settings.displayWindow = ev.target.value;
+    saveSettings();
+    autofollow = true;
+    updateRange();
+});
+
+// ----------------------------------------------------------------------------
+// Connection panel
+// ----------------------------------------------------------------------------
 const srcName = document.getElementById("srcName");
 const connType = document.getElementById("connType");
 const wsUrl = document.getElementById("wsUrl");
@@ -579,30 +820,35 @@ function showTypeFields(type) {
     typeButtons.forEach(b => { b.disabled = b.name === type; });
 }
 
-// Load saved connection settings into the form.
-const conn = settings.connection;
-srcName.value = conn.name ?? "";
-wsUrl.value = conn.websocket?.url ?? "";
-mqttBroker.value = conn.mqtt?.broker ?? "";
-mqttTopic.value = conn.mqtt?.topic ?? "";
-mqttUser.value = conn.mqtt?.username ?? "";
-mqttPass.value = conn.mqtt?.password ?? "";
-showTypeFields(conn.type ?? "websocket");
+function clearConnErrors() {
+    wsUrlErr.textContent = "";
+    mqttBrokerErr.textContent = "";
+    mqttTopicErr.textContent = "";
+    fileErr.textContent = "";
+}
 
-// Switch source type (only changes which fields are shown; doesn't connect).
+/** Loads a source's connection config into the panel. @param {Source} src */
+function loadConnForm(src) {
+    srcName.value = src.name ?? "";
+    wsUrl.value = src.websocket?.url ?? "";
+    mqttBroker.value = src.mqtt?.broker ?? "";
+    mqttTopic.value = src.mqtt?.topic ?? "";
+    mqttUser.value = src.mqtt?.username ?? "";
+    mqttPass.value = src.mqtt?.password ?? "";
+    clearConnErrors();
+    showTypeFields(src.type ?? "websocket");
+}
+
+// Switch source type (changes the active source's type + visible fields).
 typeButtons.forEach(btn => {
     btn.addEventListener("click", () => {
-        settings.connection.type = btn.name;
+        activeSource().type = btn.name;
         saveSettings();
-        wsUrlErr.textContent = "";
-        mqttBrokerErr.textContent = "";
-        mqttTopicErr.textContent = "";
-        fileErr.textContent = "";
+        clearConnErrors();
         showTypeFields(btn.name);
     });
 });
 
-// Clear validation messages as the user edits.
 wsUrl.addEventListener("input", () => { wsUrlErr.textContent = ""; });
 mqttBroker.addEventListener("input", () => { mqttBrokerErr.textContent = ""; });
 mqttTopic.addEventListener("input", () => { mqttTopicErr.textContent = ""; });
@@ -622,31 +868,34 @@ function isValidWsUrl(url) {
 }
 
 connectBtn.addEventListener("click", () => {
-    const { type } = settings.connection;
-    // Persist the current form values regardless of type.
-    settings.connection.name = srcName.value.trim();
-    settings.connection.websocket.url = wsUrl.value.trim();
-    settings.connection.mqtt = {
+    const src = activeSource();
+    // Persist the current form values into the active source.
+    src.name = srcName.value.trim();
+    src.websocket.url = wsUrl.value.trim();
+    src.mqtt = {
         broker: mqttBroker.value.trim(),
         topic: mqttTopic.value.trim(),
         username: mqttUser.value,
         password: mqttPass.value,
     };
 
-    if (type === "websocket") {
-        if (!isValidWsUrl(settings.connection.websocket.url)) {
+    const session = activeSession();
+
+    if (src.type === "websocket") {
+        if (!isValidWsUrl(src.websocket.url)) {
             wsUrlErr.textContent = "Enter a ws:// or wss:// URL.";
             return;
         }
         saveSettings();
-        window.MagConnection.connect(settings.connection);
-    } else if (type === "mqtt") {
+        clearSession(session);
+        connectSession(session);
+    } else if (src.type === "mqtt") {
         let ok = true;
-        if (!isValidWsUrl(settings.connection.mqtt.broker)) {
+        if (!isValidWsUrl(src.mqtt.broker)) {
             mqttBrokerErr.textContent = "Enter a ws:// or wss:// broker URL.";
             ok = false;
         }
-        if (!settings.connection.mqtt.topic) {
+        if (!src.mqtt.topic) {
             mqttTopicErr.textContent = "Enter a topic.";
             ok = false;
         }
@@ -654,13 +903,18 @@ connectBtn.addEventListener("click", () => {
             return;
         }
         saveSettings();
-        window.MagConnection.connect(settings.connection);
-    } else if (type === "file") {
+        clearSession(session);
+        connectSession(session);
+    } else if (src.type === "file") {
         if (!logfile.files || logfile.files.length === 0) {
             fileErr.textContent = "Choose a .log file first.";
             return;
         }
         saveSettings();
+        if (session.connection) {
+            session.connection.disconnect();
+            session.connection = null;
+        }
         loadLogFile(logfile.files[0]).catch(err => {
             console.error(err);
             fileErr.textContent = err.message;
@@ -668,13 +922,45 @@ connectBtn.addEventListener("click", () => {
     }
 });
 
-// --- Collapsible panels ---
+// ----------------------------------------------------------------------------
+// Collapsible panels
+// ----------------------------------------------------------------------------
 document.querySelectorAll("#config .panel-header").forEach(header => {
     header.addEventListener("click", () => {
         const panel = header.closest(".panel");
         panel.dataset.collapsed = String(panel.dataset.collapsed !== "true");
     });
 });
+
+// ----------------------------------------------------------------------------
+// Plot interactions
+// ----------------------------------------------------------------------------
+plotsDiv.on("plotly_relayout", ev => {
+    if (!updateLock &&
+        "xaxis.range[0]" in ev &&
+        "xaxis.range[1]" in ev) {
+        autofollow = false;
+        console.log("autofollow disabled");
+    }
+});
+plotsDiv.on("plotly_doubleclick", () => {
+    autofollow = true;
+    updateLock = true;
+    updateRange();
+    updateLock = false;
+});
+
+// ----------------------------------------------------------------------------
+// Init: load the active source into the UI and connect saved sources.
+// ----------------------------------------------------------------------------
+loadConnForm(activeSource());
+loadRotation(activeSource());
+refreshFilter();
+for (const src of settings.sources) {
+    if (src.type !== "file") {
+        connectSession(sessions.get(src.id));
+    }
+}
 
 /**
  * @typedef {object} MagUsbJson
@@ -686,22 +972,19 @@ document.querySelectorAll("#config .panel-header").forEach(header => {
  */
 
 /**
- * @typedef {object} DashSettings
- * @prop {boolean} inHEZ
- * @prop {string} displayWindow
- * @prop {object} transform
- * @prop {number} transform.x
- * @prop {number} transform.y
- * @prop {number} transform.z
- * @prop {object} filter
- * @prop {boolean} filter.enabled
- * @prop {number} filter.windowSec
- * @prop {DataSource[]} sources
+ * @typedef {object} Source
+ * @prop {string} id
+ * @prop {string} name
+ * @prop {"websocket"|"mqtt"|"file"} type
+ * @prop {{url: string}} websocket
+ * @prop {{broker: string, topic: string, username: string, password: string}} mqtt
+ * @prop {{x: number, y: number, z: number}} transform
  */
 
 /**
- * @typedef {object} DataSource
- * @prop {string} name
- * @prop {"Live"|"Static"|"Unknown"} type
- * @prop {string} url
+ * @typedef {object} DashSettings
+ * @prop {string} displayWindow
+ * @prop {{enabled: boolean, windowSec: number}} filter
+ * @prop {Source[]} sources
+ * @prop {string} activeSourceId
  */

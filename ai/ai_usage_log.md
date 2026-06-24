@@ -56,3 +56,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (feature) + dependency vendoring
 - **Human Review Status**: Reviewed and verified (MQTT connect/receive/render, broker+topic validation, WebSocket↔MQTT switching, no-regression on WebSocket, and authentication accept/reject — all verified via headless browser against local aedes MQTT-over-WS brokers, including a credential-required broker)
 - **Git Hash**: f51c54a
+
+## [2026-06-24 16:41 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Phase A groundwork for the tabbed multiple-data-source interface (issue #21): refactor the single-source dashboard onto a per-source "session" architecture, with full behavioral parity and no visible change yet. Converted the single global connection + data buffer into a `sources[] + activeSourceId` model where each source owns its connection config and coordinate transform, and each has one runtime session (measurement/sparkline buffers + live connection). Rewrote transit.js into a DOM-free per-source connection factory (`MagConnection.create(config, { onReading, onStatus })`); moved connection-status mapping from transit.js into index.js; readings and status route per source and only the active session renders. Added a guard so unconfigured sources don't auto-connect. Moving average and time window remain shared; rotation is now per-source.
+- **Sections/Files Affected**: `js/transit.js` (rewritten as a per-source connection factory with WebSocket + MQTT transports, callback-based), `js/index.js` (sources[]/session model, settings migration from the old connection+transform shape, per-source reading/status routing, active-session rendering, status mapping, per-source rotation)
+- **Nature of Contribution**: Code generation (refactor)
+- **Human Review Status**: Reviewed and verified (WebSocket, MQTT, MQTT auth accept/reject, panel type-switch/collapse/validation, file load, filter overlay, per-source rotation, and persistence/auto-reconnect all verified via headless browser; single-source parity confirmed)
+- **Git Hash**: [pending]
