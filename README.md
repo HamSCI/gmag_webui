@@ -16,6 +16,7 @@ download the repository as a zip archive and extract the files.
 This project vendors the following dependencies:
 * Font Awesome
 * Plotly.js
+* mqtt.js
 
 ## Prerequisites
 
