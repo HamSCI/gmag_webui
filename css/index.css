@@ -9,6 +9,7 @@
     --col-btn-disabled: rgba(0, 125, 166, 0.9);
     --col-tab-active: #424242;
     --hbar-grad: linear-gradient(#000000, #606060, #000000);
+    --right-side-radius: 8px;
     /* Config panel (instrument-panel surface) */
     --panel-bg: #2b2b2b;
     --panel-header-bg: #383838;
@@ -104,14 +105,13 @@ input:invalid {
 footer {
     width: 100%;
     text-align: center;
-}
-
-footer div {
-    vertical-align: bottom;
     background: var(--hbar-grad);
+    vertical-align: bottom;
     color: #fff;
     padding-top: 7px;
     padding-bottom: 7px;
+    display: grid;
+    grid-template-columns: 1fr 60px;
 }
 
 .layout {
@@ -124,7 +124,6 @@ footer div {
        (between the header and footer) rather than the whole viewport. */
     position: relative;
     display: grid;
-    /* grid-template-columns: 300px 1fr 400px; */
     grid-template-columns: 1fr 500px;
     grid-template-rows: minmax(0, 1fr);
 }
@@ -193,7 +192,7 @@ footer div {
     /* Match the small gap the Current Reading box leaves below its header. */
     margin-top: 5px;
     font-size: 10pt;
-    border-radius: 8px;
+    border-radius: var(--right-side-radius);
 }
 
 table {
@@ -240,17 +239,14 @@ table {
 }
 
 thead th {
-    background: var(--hbar-grad);
+    background-color: #333;
     color: #fff;
     padding: 6px;
-    /* padding-top: 6px;
-    padding-bottom: 6px; */
 }
 
 td {
     text-align: center;
     padding: 2px;
-    /* font-size: 10pt; */
 }
 
 tbody tr:hover {
@@ -293,10 +289,11 @@ tr:nth-of-type(2n) {
 .header {
     display: flex;
     flex-direction: row;
+    background-image: var(--hbar-grad);
     background-color: #333;
     color: #fff;
     padding: 6px;
-    border-radius: 8px;
+    border-radius: var(--right-side-radius);
 }
 
 .header > * {
@@ -404,6 +401,11 @@ tr:nth-of-type(2n) {
 }
 .field-error:empty {
     display: none;
+}
+
+/* Fix spacing issues for MQTT broker panel */
+.type-fields[data-type="mqtt"] > .field:not(:first-of-type) {
+    padding-top: 10px;
 }
 
 /* Subheads inside a panel body */
@@ -589,25 +591,17 @@ tr:nth-of-type(2n) {
     padding: 5px;
     text-align: center;
     display: grid;
-    border-radius: 8px;
+    border-radius: var(--right-side-radius);
     color: #fff;
 }
 
-.row1 .cell:first-of-type {
-    background-color: #a0071e;
-}
-.row1 .cell:nth-of-type(2) {
-    background-color: #335e3b;
-}
-.row1 .cell:last-of-type {
-    background-color: #023e8a;
-}
-.row2 .cell:first-of-type {
-    background-color: #da1884;
-}
-.row2 .cell:last-of-type {
-    background-color: #ffb200;
-}
+.row1 .cell:first-of-type { background-color: #a0071e; }
+.row1 .cell:nth-of-type(2) { background-color: #335e3b; }
+.row1 .cell:last-of-type { background-color: #023e8a; }
+
+.row2 .cell:first-of-type { background-color: #da1884; }
+.row2 .cell:last-of-type { background-color: #ffb200; }
+
 .cell-head {
     text-align: left;
     font-size: 8pt;
@@ -615,5 +609,59 @@ tr:nth-of-type(2n) {
 }
 .cell-value {
     font-size: 18pt;
-    /* font-weight: bold; */
+}
+
+/* Src: https: //www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 30px;
+    height: 15px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.square .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 4px;
+}
+
+.square .slider:before {
+    position: absolute;
+    content: "";
+    height: 12px;
+    width: 12px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 2px;
+}
+
+.square input:checked + .slider {
+    background-color: #4caf50;
+}
+
+.square input:checked + .slider:before {
+    transform: translateX(14px);
+}
+
+#ldWrapper {
+    display: flex;
+    margin-right: 7px;
+}
+
+#ldWrapper i {
+    padding-right: 7px;
 }
