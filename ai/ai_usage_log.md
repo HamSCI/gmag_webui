@@ -63,4 +63,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/transit.js` (rewritten as a per-source connection factory with WebSocket + MQTT transports, callback-based), `js/index.js` (sources[]/session model, settings migration from the old connection+transform shape, per-source reading/status routing, active-session rendering, status mapping, per-source rotation)
 - **Nature of Contribution**: Code generation (refactor)
 - **Human Review Status**: Reviewed and verified (WebSocket, MQTT, MQTT auth accept/reject, panel type-switch/collapse/validation, file load, filter overlay, per-source rotation, and persistence/auto-reconnect all verified via headless browser; single-source parity confirmed)
-- **Git Hash**: [pending]
+- **Git Hash**: b212b60
