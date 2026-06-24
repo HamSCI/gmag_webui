@@ -174,7 +174,7 @@ footer {
 #wordmark {
     font-size: 16pt;
     margin-left: 16px;
-    flex-grow: 1;
+    flex-shrink: 0;
 }
 
 #data, #trends {
@@ -510,65 +510,96 @@ tr:nth-of-type(2n) {
     display: none;
 }
 
+/* Data-source tabs (issue #21) */
 #tabber {
     display: flex;
     flex-direction: row;
-    flex-grow: 3;
-    margin: auto 12px 0;
+    align-items: center;
+    gap: 6px;
+    flex-grow: 1;
+    min-width: 0;
+    margin-left: 16px;
 }
 
 #tabs {
-    max-width: calc(100% - 15px);
-    /* overflow-x: scroll; */
-}
-
-.new-tab-btn {
-    border-color: #fff;
-    border-style: solid;
-    border-width: 3px 3px 0;
-    padding: 6px;
-    transition: .1s;
-}
-.new-tab-btn:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-style: outset;
-}
-.new-tab-btn:active {
-    background-color: rgba(0, 0, 0, 0.1);
-    border-style: inset;
-}
-
-.tooltip {
-    visibility: hidden;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px;
-    position: absolute;
-    z-index: 1;
-    margin-left: 14px;
-    background-color: transparent;
-    color: transparent;
-    transition: color .1s, background-color .1s;
-}
-
-.new-tab-btn:hover .tooltip {
-    visibility: visible;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow-x: auto;
 }
 
 .tab {
     display: flex;
     flex-direction: row;
-    padding: 6px;
-    border-color: #fff;
-    border-style: solid;
-    border-width: 3px 3px 0;
-    color: #fff;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 5px 9px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #cfcfcf;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.tab:hover {
+    background-color: rgba(255, 255, 255, 0.16);
 }
 .tab.active {
-    border-style: outset;
-    background-color: #545454;
+    background-color: var(--panel-bg);
+    color: #fff;
+}
+
+.tab-name {
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tab-status {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--col-danger);
+}
+.tab-status.s-connecting { background-color: var(--col-info); }
+.tab-status.s-connected { background-color: var(--col-success); }
+.tab-status.s-disconnected { background-color: var(--col-danger); }
+.tab-status.s-failed { background-color: var(--col-warning); }
+
+.tab-close {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #aaa;
+    border-radius: 3px;
+    padding: 1px 3px;
+}
+.tab-close:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#addTab {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    cursor: pointer;
+}
+#addTab:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+#addTab:disabled {
+    opacity: 0.4;
+    cursor: default;
 }
 
 #current {

@@ -64,3 +64,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (refactor)
 - **Human Review Status**: Reviewed and verified (WebSocket, MQTT, MQTT auth accept/reject, panel type-switch/collapse/validation, file load, filter overlay, per-source rotation, and persistence/auto-reconnect all verified via headless browser; single-source parity confirmed)
 - **Git Hash**: b212b60
+
+## [2026-06-24 17:24 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Implement the tabbed multiple-data-source interface (issue #21), Phase B, on top of the per-source session refactor. Built the tab bar — add / switch / close tabs, per-tab connection-status dots, live rename, a 6-source performance cap, and an always-at-least-one-tab rule. All tabs stay connected and keep buffering in the background; only the active session renders to the shared plots/spreadsheet/trends; switching re-renders from the active session; rotation is per-tab. Also fixed a tab-switch rendering bug where a previous source's axis ranges, range slider, and WebGL traces lingered when switching to another source — root cause was Plotly mutating the shared layout object's nested axis objects with computed ranges; fixed by deep-cloning the layout on each draw, using purge + newPlot on reset, and keying uirevision to the active source.
+- **Sections/Files Affected**: `index.html` (replaced the commented tabber scaffold with the live tab bar markup), `css/index.css` (tab bar styling; wordmark no longer flex-grows), `js/index.js` (tab management: render/add/switch/close + per-tab status; background-buffering reading routing; active-session redraw with deep-cloned per-source layout, purge+newPlot, and per-source uirevision)
+- **Nature of Contribution**: Code generation (feature + bug fix)
+- **Human Review Status**: Reviewed and verified (create/switch/close multiple tabs, two independent live sources with background buffering, persistence + reconnect-all on reload, and a clean switch to an empty source — all verified via headless browser against two local fake hosts)
+- **Git Hash**: [pending]

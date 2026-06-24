@@ -17,30 +17,14 @@
                 <i id="sideToggle" class="fa-solid fa-bars"></i>
                 <img src="images/HamSci.png" height="30" />
                 <div id="wordmark" style="font-style: italic;">Magnetometer Dash</div>
-                <!--Tabbed interface for multiple magnetometers-->
-                <!-- <div id="tabber">
-                    <div id="tabs">
-                        <template id="srcTab">
-                            <div class="tab">
-                                <div class="tab-ico">
-                                    <i class="fa-solid fa-question"></i>
-                                </div>
-                                <span class="tab-name">
-                                    Untitled
-                                </span>
-                                <div class="tab-closer">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                    <div id="addNew" class="new-tab-btn">
+                <!-- Tabbed interface for multiple data sources (issue #21).
+                     Tabs are rendered into #tabs by js/index.js. -->
+                <div id="tabber">
+                    <div id="tabs"></div>
+                    <button type="button" id="addTab" title="Add source">
                         <i class="fa-solid fa-plus"></i>
-                        <span class="tooltip">
-                            Add new source
-                        </span>
-                    </div>
-                </div> -->
+                    </button>
+                </div>
                 <div id="status" class="error">
                     <i class="fa-solid fa-circle-xmark"></i>
                     <span>Disconnected</span>

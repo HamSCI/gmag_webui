@@ -174,13 +174,73 @@ for (const src of settings.sources) {
 // Plots
 // ----------------------------------------------------------------------------
 const plotsDiv = document.getElementById("plots");
-Plotly.newPlot(plotsDiv, plotsInit.traces, plotsInit.layout, plotsInit.config);
-
 const sparkDiv = document.getElementById("sparklines");
-Plotly.newPlot(sparkDiv, slInit.traces, slInit.layout, slInit.config);
 
 let autofollow = true;
 let updateLock = false;
+
+// Per-source uirevision. Plotly preserves axis ranges, zoom, and the range
+// slider whenever uirevision is unchanged (even across newPlot), which left a
+// previous source's ranges behind when switching tabs. Keying it to the active
+// source resets that state on switch while preserving the user's zoom/pan
+// during live updates within a source.
+// Deep-clone: Plotly writes computed axis ranges back into the layout object it
+// is given, so a shared layout would carry one source's ranges into the next.
+function mainLayout() {
+    const layout = structuredClone(plotsInit.layout);
+    layout.uirevision = settings.activeSourceId;
+    return layout;
+}
+function sparkLayout() {
+    const layout = structuredClone(slInit.layout);
+    layout.uirevision = settings.activeSourceId;
+    return layout;
+}
+
+/**
+ * (Re)attaches the main-plot interaction handlers. Needed after every
+ * Plotly.newPlot, which clears the plot's event registry.
+ */
+function attachPlotHandlers() {
+    if (plotsDiv.removeAllListeners) {
+        plotsDiv.removeAllListeners("plotly_relayout");
+        plotsDiv.removeAllListeners("plotly_doubleclick");
+    }
+    plotsDiv.on("plotly_relayout", ev => {
+        if (!updateLock &&
+            "xaxis.range[0]" in ev &&
+            "xaxis.range[1]" in ev) {
+            autofollow = false;
+        }
+    });
+    plotsDiv.on("plotly_doubleclick", () => {
+        autofollow = true;
+        updateLock = true;
+        updateRange();
+        updateLock = false;
+    });
+}
+
+/**
+ * Draws the main plot from scratch with newPlot (not react) so switching
+ * sources fully clears the previous source's WebGL traces, axis ranges, and
+ * range slider rather than leaving residual rendering behind.
+ * @param {object[]} traces
+ */
+function drawMainPlot(traces) {
+    // purge wipes the stored layout (axis ranges, range slider, WebGL context);
+    // newPlot alone keeps the previous ranges when the new data is empty.
+    Plotly.purge(plotsDiv);
+    Plotly.newPlot(plotsDiv, traces, mainLayout(), plotsInit.config);
+    attachPlotHandlers();
+}
+function drawSparkPlot(traces) {
+    Plotly.purge(sparkDiv);
+    Plotly.newPlot(sparkDiv, traces, sparkLayout(), slInit.config);
+}
+
+drawMainPlot(structuredClone(plotsInit.traces));
+drawSparkPlot(structuredClone(slInit.traces));
 
 /**
  * Applies the active source's coordinate transform to a measurement's HEZ.
@@ -195,12 +255,10 @@ function rotatedHEZ(m) {
         .rotate("z", z, false);
 }
 
-/** Resets both plots to their initial empty state. */
+/** Resets both plots to their initial empty state (full re-init). */
 function resetPlots() {
-    Plotly.react(plotsDiv,
-        structuredClone(plotsInit.traces), plotsInit.layout, plotsInit.config);
-    Plotly.react(sparkDiv,
-        structuredClone(slInit.traces), slInit.layout, slInit.config);
+    drawMainPlot(structuredClone(plotsInit.traces));
+    drawSparkPlot(structuredClone(slInit.traces));
 }
 
 /**
@@ -322,7 +380,7 @@ function updateSparks() {
         session.sparklines.shift();
     }
     const newSlTraces = buildSparklineTraces(session.sparklines);
-    Plotly.react(sparkDiv, newSlTraces, slInit.layout, slInit.config);
+    Plotly.react(sparkDiv, newSlTraces, sparkLayout(), slInit.config);
 }
 
 /**
@@ -519,7 +577,7 @@ function handleStatus(id, code, retry) {
     if (id === settings.activeSourceId) {
         setHeaderStatus(code, retry);
     }
-    // Phase B: reflect status on the source's tab.
+    updateTabStatus(id, code);
 }
 
 /** @param {Session} session */
@@ -933,21 +991,143 @@ document.querySelectorAll("#config .panel-header").forEach(header => {
 });
 
 // ----------------------------------------------------------------------------
-// Plot interactions
+// Tabs (one per source)
 // ----------------------------------------------------------------------------
-plotsDiv.on("plotly_relayout", ev => {
-    if (!updateLock &&
-        "xaxis.range[0]" in ev &&
-        "xaxis.range[1]" in ev) {
-        autofollow = false;
-        console.log("autofollow disabled");
+const tabsEl = document.getElementById("tabs");
+const addTabBtn = document.getElementById("addTab");
+
+/** @param {number} code status code @returns {string} CSS class for the dot */
+function statusClass(code) {
+    switch (code) {
+        case 0: return "s-connecting";
+        case 1: case 4: return "s-connected";
+        case 3: return "s-failed";
+        default: return "s-disconnected"; // 2 disconnected, 5 auth failed
     }
-});
-plotsDiv.on("plotly_doubleclick", () => {
-    autofollow = true;
-    updateLock = true;
-    updateRange();
-    updateLock = false;
+}
+
+/** Updates just one tab's status dot. @param {string} id @param {number} code */
+function updateTabStatus(id, code) {
+    const dot = tabsEl.querySelector(`.tab[data-id="${id}"] .tab-status`);
+    if (dot) {
+        dot.className = "tab-status " + statusClass(code);
+    }
+}
+
+/** Rebuilds the tab strip from settings.sources. */
+function renderTabs() {
+    tabsEl.innerHTML = "";
+    for (const src of settings.sources) {
+        const session = sessions.get(src.id);
+        const tab = document.createElement("div");
+        tab.className = "tab" +
+            (src.id === settings.activeSourceId ? " active" : "");
+        tab.dataset.id = src.id;
+
+        const dot = document.createElement("span");
+        dot.className = "tab-status " + statusClass(session ? session.status : 2);
+        tab.appendChild(dot);
+
+        const name = document.createElement("span");
+        name.className = "tab-name";
+        name.textContent = src.name || "Untitled";
+        tab.appendChild(name);
+
+        const close = document.createElement("i");
+        close.className = "tab-close fa-solid fa-xmark";
+        close.title = "Close source";
+        close.addEventListener("click", ev => {
+            ev.stopPropagation();
+            closeTab(src.id);
+        });
+        tab.appendChild(close);
+
+        tab.addEventListener("click", () => switchTab(src.id));
+        tabsEl.appendChild(tab);
+    }
+    addTabBtn.disabled = settings.sources.length >= MAX_SOURCES;
+}
+
+/** Opens the config sidebar (used when adding a source to configure). */
+function openSidebar() {
+    document.getElementById("config").style.transform = "translateX(0)";
+    sideToggle.classList.remove("fa-bars");
+    sideToggle.classList.add("fa-xmark");
+}
+
+/** Switches the UI to a different source. @param {string} id */
+function switchTab(id) {
+    if (id === settings.activeSourceId || !sessions.has(id)) {
+        return;
+    }
+    settings.activeSourceId = id;
+    saveSettings();
+    const src = activeSource();
+    loadConnForm(src);
+    loadRotation(src);
+    renderActive();
+    renderTabs();
+}
+
+/** Adds a new, unconfigured source and switches to it. */
+function addTab() {
+    if (settings.sources.length >= MAX_SOURCES) {
+        return;
+    }
+    const src = makeSource(`Source ${settings.sources.length + 1}`);
+    settings.sources.push(src);
+    sessions.set(src.id, makeSession(src));
+    settings.activeSourceId = src.id;
+    saveSettings();
+    loadConnForm(src);
+    loadRotation(src);
+    renderActive();
+    renderTabs();
+    openSidebar();
+    srcName.focus();
+}
+
+/** Closes a source, its connection, and its session. @param {string} id */
+function closeTab(id) {
+    const session = sessions.get(id);
+    if (session && session.connection) {
+        session.connection.disconnect();
+    }
+    sessions.delete(id);
+    const idx = settings.sources.findIndex(s => s.id === id);
+    if (idx !== -1) {
+        settings.sources.splice(idx, 1);
+    }
+
+    // Never leave zero tabs.
+    if (settings.sources.length === 0) {
+        const src = makeSource("Source 1");
+        settings.sources.push(src);
+        sessions.set(src.id, makeSession(src));
+        settings.activeSourceId = src.id;
+    } else if (id === settings.activeSourceId) {
+        settings.activeSourceId =
+            settings.sources[Math.max(0, idx - 1)].id;
+    }
+
+    saveSettings();
+    const src = activeSource();
+    loadConnForm(src);
+    loadRotation(src);
+    renderActive();
+    renderTabs();
+}
+
+addTabBtn.addEventListener("click", addTab);
+
+// Live-rename the active tab as the source name is edited.
+srcName.addEventListener("input", () => {
+    activeSource().name = srcName.value;
+    const label = tabsEl.querySelector(
+        `.tab[data-id="${settings.activeSourceId}"] .tab-name`);
+    if (label) {
+        label.textContent = srcName.value || "Untitled";
+    }
 });
 
 // ----------------------------------------------------------------------------
@@ -956,10 +1136,9 @@ plotsDiv.on("plotly_doubleclick", () => {
 loadConnForm(activeSource());
 loadRotation(activeSource());
 refreshFilter();
+renderTabs();
 for (const src of settings.sources) {
-    if (src.type !== "file") {
-        connectSession(sessions.get(src.id));
-    }
+    connectSession(sessions.get(src.id));
 }
 
 /**
