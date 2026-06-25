@@ -5,6 +5,7 @@
   "imports": {
     "@std/assert": "jsr:@std/assert@1",
     "@types/plotly.js": "npm:@types/plotly.js@^3.0.10",
+    "mqtt": "npm:mqtt@^5.15.1",
     "plotly.js": "npm:plotly.js@^3.3.1"
   }
 }
