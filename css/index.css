@@ -54,10 +54,6 @@ main {
     min-height: 0;
 }
 
-/* main > div {
-    height: 20%;
-} */
-
 #plots {
     height: 100%;
 }
@@ -373,6 +369,7 @@ tr:nth-of-type(2n) {
 .field input[type="text"],
 .field input[type="password"],
 .field input[type="url"],
+.field input[type="number"],
 .field select {
     width: 100%;
     border: 1px solid transparent;
@@ -404,8 +401,19 @@ tr:nth-of-type(2n) {
 }
 
 /* Fix spacing issues for MQTT broker panel */
-.type-fields[data-type="mqtt"] > .field:not(:first-of-type) {
+.type-fields[data-type="mqtt"] > .field:not(:first-of-type)/*,
+.method-fields[data-type="constant"] > .field:not(:first-of-type)*/ {
     padding-top: 10px;
+}
+
+.method-fields[data-type="constant"] {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+}
+
+#delta {
+    rotate: -90deg;
 }
 
 /* Subheads inside a panel body */
@@ -502,11 +510,12 @@ tr:nth-of-type(2n) {
     width: 100%;
 }
 .slider-group > span {
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
 }
 
-.type-fields[hidden] {
+.type-fields[hidden],
+.method-fields[hidden] {
     display: none;
 }
 

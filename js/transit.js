@@ -1,3 +1,5 @@
+/// <reference path="./index.d.ts" />
+
 /* Connection manager. Creates independent transports (WebSocket or MQTT), one
  * per data source, so several stations can stream at once. Each instance is
  * DOM-free and reports through callbacks; the app decides how to route readings
@@ -73,7 +75,7 @@
         }
 
         function connectMqtt(cfg) {
-            if (typeof mqtt === "undefined") {
+            if (typeof window.mqtt === "undefined") {
                 console.error("MQTT.js failed to load.");
                 onStatus(2);
                 return;
@@ -91,7 +93,7 @@
             // Set once the broker rejects credentials, so reconnect churn does
             // not overwrite the clearer "Auth failed" status.
             let authFailed = false;
-            mqttClient = mqtt.connect(broker, opts);
+            mqttClient = window.mqtt.connect(broker, opts);
 
             mqttClient.on("connect", () => {
                 onStatus(1);

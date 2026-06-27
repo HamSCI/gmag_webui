@@ -96,7 +96,7 @@ export default class Vector {
             angle *= Math.PI / 180;
         }
         // JC: For the given use case, doing it this way instead of hardcoded
-        // axis flipping is a little bit more involved, but it give us more
+        // axis flipping is a little bit more involved, but it gives us more
         // flexibility.
         const { sin, cos } = Math;
         const [x, y, z] = this;
@@ -151,5 +151,15 @@ export default class Vector {
      */
     scale(k) {
         return new Vector(k * this[0], k * this[1], k * this[2]);
+    }
+
+    /**
+     * Returns the computation of `this` - `dB`.
+     * @param {number} dX delta-X
+     * @param {number} dY delta-Y
+     * @param {number} dZ delta-Z
+     */
+    delta(dX, dY, dZ) {
+        return new Vector(this[0] - dX, this[1] - dY, this[2] - dZ);
     }
 }

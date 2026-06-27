@@ -4,6 +4,7 @@ import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
 import { trailingAverageAt, movingAverage } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
+import Vector from "./Vector.js";
 
 const timeRanges = {
     "1m": 60,
@@ -33,7 +34,9 @@ const RAW_FADED_OPACITY = 0.25;
 // Moving average and time window are shared across all sources; each source
 // (tab) owns its own connection config and coordinate transform.
 
-/** @returns {string} a unique id (falls back when crypto is unavailable) */
+/**
+ * @returns {string} a unique id (falls back when crypto is unavailable)
+ */
 function uid() {
     if (window.crypto && window.crypto.randomUUID) {
         return window.crypto.randomUUID();
@@ -53,10 +56,13 @@ function makeSource(name = "Source 1") {
         websocket: { url: "" },
         mqtt: { broker: "", topic: "", username: "", password: "" },
         transform: { x: 0, y: 0, z: 0 },
+        dB: { moving: false, h: 0, e: 0, z: 0 },
     };
 }
 
-/** @returns {DashSettings} */
+/**
+ * @returns {DashSettings}
+ */
 function defaultSettings() {
     const src = makeSource();
     return {
@@ -95,6 +101,7 @@ function migrateSettings(s) {
                 password: (old.mqtt && old.mqtt.password) || "",
             },
             transform: s.transform || { x: 0, y: 0, z: 0 },
+            dB: s.dB || { moving: false, h: 0, e: 0, z: 0 },
         }];
         s.activeSourceId = s.sources[0].id;
     }
@@ -124,11 +131,16 @@ function saveSettings() {
 }
 saveSettings(); // persist the normalized shape
 
-/** @param {string} id @returns {Source|undefined} */
+/**
+ * @param {string} id
+ * @returns {Source|undefined}
+ */
 function getSource(id) {
     return settings.sources.find(s => s.id === id);
 }
-/** @returns {Source} */
+/**
+ * @returns {Source}
+ */
 function activeSource() {
     return getSource(settings.activeSourceId);
 }
@@ -150,7 +162,10 @@ function activeSource() {
 /** @type {Map<string, Session>} */
 const sessions = new Map();
 
-/** @param {Source} source @returns {Session} */
+/**
+ * @param {Source} source
+ * @returns {Session}
+ */
 function makeSession(source) {
     return {
         id: source.id,
@@ -248,11 +263,45 @@ drawSparkPlot(structuredClone(slInit.traces));
  * @returns {Vector} the rotated HEZ vector ready for display
  */
 function rotatedHEZ(m) {
-    const { x, y, z } = activeSource().transform;
+    const { transform: { x, y, z } } = activeSource();
     return m.HEZ
         .rotate("x", x, false)
         .rotate("y", y, false)
         .rotate("z", z, false);
+}
+
+/**
+ * Applies a delta-Baseline to a vector.
+ *
+ * Assumption: v is in HEZ.
+ * @param {Vector} v the vector to adjust
+ * @returns {Vector} v - dB
+ */
+function applyDeltaB(v) {
+    const { transform: { x, y, z } } = activeSource();
+    /** @type {number[]} */
+    let deltaB;
+    if (activeSource().dB.moving) {
+        const { measurements } = activeSession();
+        deltaB = trailingAverageAt(measurements,
+            measurements.length - 1, settings.filter.windowSec)
+            .HEZ
+            .rotate("x", x, false)
+            .rotate("y", y, false)
+            .rotate("z", z, false);
+    } else {
+        const { dB: { h, e, z } } = activeSource();
+        deltaB = [h, e, z];
+    }
+    return v.delta(...deltaB);
+}
+
+/**
+ * @returns {boolean}
+ */
+function usesDeltaB() {
+    const { dB: { moving, h, e, z } } = activeSource();
+    return moving || (h || e || z);
 }
 
 /** Resets both plots to their initial empty state (full re-init). */
@@ -269,7 +318,10 @@ function recomputeFiltered() {
     const smoothed = movingAverage(
         activeSession().measurements, settings.filter.windowSec);
     const x = smoothed.map(m => m.ts);
-    const vectors = smoothed.map(rotatedHEZ);
+    let vectors = smoothed.map(rotatedHEZ);
+    if (usesDeltaB()) {
+        vectors = vectors.map(applyDeltaB);
+    }
     Plotly.restyle(plotsDiv, {
         x: FILTER_TRACES.map(() => x),
         y: [
@@ -303,12 +355,26 @@ function refreshFilter() {
 
 function updateCoordGraphs() {
     const vectors = activeSession().measurements.map(rotatedHEZ);
-    // Only the coordinate graphs actually change; magnitude is rotation-invariant.
+
     /** @type {[0, 1, 2]} */
     const traces = [0, 1, 2];
-    Plotly.restyle(plotsDiv, {
-        y: traces.map(t => vectors.map(v => v[t]))
-    }, traces);
+
+    // Depending on what we have, what we update changes:
+    // 1. If we only have rotation, then only coordinate graphs change.
+    // 2. If we have any dB, all vector plots change.
+    if (!usesDeltaB()) {
+        Plotly.restyle(plotsDiv, {
+            y: traces.map(t => vectors.map(v => v[t]))
+        }, traces);
+    } else {
+        const vectorsdB = vectors.map(applyDeltaB);
+        const newTraces = traces.map(t => vectorsdB.map(v => v[t]));
+        newTraces.push(vectorsdB.map(v => v.magnitude));
+        Plotly.restyle(plotsDiv, {
+            y: newTraces
+        }, traces.concat(3));
+    }
+
     // The smoothed overlay depends on the same rotation, so rebuild it too.
     if (settings.filter.enabled) {
         recomputeFiltered();
@@ -341,7 +407,10 @@ function updateRange() {
  * @param {Measurement} measurement
  */
 function extendAllTraces(measurement) {
-    const dispVec = rotatedHEZ(measurement);
+    let dispVec = rotatedHEZ(measurement);
+    if (usesDeltaB()) {
+        dispVec = applyDeltaB(dispVec);
+    }
     const { ts } = measurement;
     Plotly.extendTraces(plotsDiv, {
         x: [[ts], [ts], [ts], [ts], [ts]],
@@ -360,7 +429,10 @@ function extendAllTraces(measurement) {
         const ms = activeSession().measurements;
         const smoothed = trailingAverageAt(
             ms, ms.length - 1, settings.filter.windowSec);
-        const filtVec = rotatedHEZ(smoothed);
+        let filtVec = rotatedHEZ(smoothed);
+        if (usesDeltaB()) {
+            filtVec = applyDeltaB(filtVec);
+        }
         Plotly.extendTraces(plotsDiv, {
             x: [[ts], [ts], [ts], [ts], [ts]],
             y: [
@@ -402,7 +474,10 @@ function spreadsheetRowHTML(measurement) {
         second: "2-digit"
     }).format(measurement.ts);
 
-    const dispVector = rotatedHEZ(measurement);
+    let dispVector = rotatedHEZ(measurement);
+    if (usesDeltaB()) {
+        dispVector = applyDeltaB(dispVector);
+    }
 
     return `
         <tr>
@@ -436,11 +511,14 @@ function rebuildSpreadsheet() {
  * @param {Measurement} m
  */
 function updateCurrentTable(m) {
-    const dispVec = rotatedHEZ(m);
+    let dispVec = rotatedHEZ(m);
+    if (usesDeltaB()) {
+        dispVec = applyDeltaB(dispVec);
+    }
     document.getElementById("h").textContent = dispVec[0].toFixed(3);
     document.getElementById("e").textContent = dispVec[1].toFixed(3);
     document.getElementById("z").textContent = dispVec[2].toFixed(3);
-    document.getElementById("mag").textContent = m.HEZ.magnitude.toFixed(3);
+    document.getElementById("mag").textContent = dispVec.magnitude.toFixed(3);
     document.getElementById("temp").textContent = m.celsius.toFixed(2);
 }
 
@@ -592,7 +670,10 @@ function handleHardwareError(session) {
     }
 }
 
-/** @param {string} id @returns {{onReading: function, onStatus: function}} */
+/**
+ * @param {string} id
+ * @returns {{onReading: function, onStatus: function}}
+ */
 function connectionHandlers(id) {
     return {
         onReading: json => handleReading(id, json),
@@ -668,7 +749,10 @@ function renderActive() {
 
     if (ms.length > 0) {
         const times = ms.map(m => m.ts);
-        const vecs = ms.map(rotatedHEZ);
+        let vecs = ms.map(rotatedHEZ);
+        if (usesDeltaB()) {
+            vecs = vecs.map(applyDeltaB);
+        }
         Plotly.update(plotsDiv, {
             x: [times, times, times, times, times],
             y: [
@@ -777,7 +861,10 @@ const xDel = document.getElementById("xDelta");
 const yDel = document.getElementById("yDelta");
 const zDel = document.getElementById("zDelta");
 
-/** Loads a source's transform into the rotation sliders. @param {Source} src */
+/**
+ * Loads a source's transform into the rotation sliders.
+ * @param {Source} src
+ */
 function loadRotation(src) {
     rotX.value = src.transform.x;
     rotY.value = src.transform.y;
@@ -802,6 +889,60 @@ document.getElementById("saveRot").addEventListener("click", () => {
 });
 
 // ----------------------------------------------------------------------------
+// Processing: variations from delta-B (per source)
+// ----------------------------------------------------------------------------
+const dBType = document.getElementById("dBType");
+const methodBtns = [...dBType.querySelectorAll("button")];
+
+/**
+ * Shows only the fields for the given method type and marks its button active.
+ * @param {string} type "constant" | "moving"
+ */
+function showMethodFields(type) {
+    document.querySelectorAll("#config .method-fields").forEach(el => {
+        el.hidden = el.dataset.type !== type;
+    });
+    methodBtns.forEach(b => { b.disabled = b.name === type; });
+}
+
+// Switch dB calc method (changes visible fields).
+methodBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+        showMethodFields(btn.name);
+    });
+});
+
+const dH = document.getElementById("dH");
+const dE = document.getElementById("dE");
+const dZ = document.getElementById("dZ");
+
+document.getElementById("savedB").addEventListener("click", () => {
+    const src = activeSource();
+    const field = document.querySelector("#dBType button:disabled").name;
+    const isMoving = field === "moving";
+    src.dB.moving = isMoving;
+    if (!isMoving) {
+        src.dB.h = dH.valueAsNumber;
+        src.dB.e = dE.valueAsNumber;
+        src.dB.z = dZ.valueAsNumber;
+    }
+    saveSettings();
+    updateCoordGraphs();
+    rebuildSpreadsheet();
+});
+
+/**
+ * Loads a source's delta-B config into the sidebar.
+ * @param {Source} src
+ */
+function loadDeltaB(src) {
+    dH.value = src.dB.h ?? 0;
+    dE.value = src.dB.e ?? 0;
+    dZ.value = src.dB.z ?? 0;
+    showMethodFields(src.dB.moving ? "moving" : "constant");
+}
+
+// ----------------------------------------------------------------------------
 // Processing: moving-average filter (shared)
 // ----------------------------------------------------------------------------
 const filterGroup = document.getElementById("filterGroup");
@@ -813,7 +954,9 @@ filterWindow.value = String(settings.filter.windowSec);
 filterOff.disabled = !settings.filter.enabled;
 filterOn.disabled = settings.filter.enabled;
 
-/** @param {boolean} enabled */
+/**
+ * @param {boolean} enabled
+ */
 function setFilterEnabled(enabled) {
     settings.filter.enabled = enabled;
     saveSettings();
@@ -885,7 +1028,10 @@ function clearConnErrors() {
     fileErr.textContent = "";
 }
 
-/** Loads a source's connection config into the panel. @param {Source} src */
+/**
+ * Loads a source's connection config into the panel.
+ * @param {Source} src
+ */
 function loadConnForm(src) {
     srcName.value = src.name ?? "";
     wsUrl.value = src.websocket?.url ?? "";
@@ -996,17 +1142,29 @@ document.querySelectorAll("#config .panel-header").forEach(header => {
 const tabsEl = document.getElementById("tabs");
 const addTabBtn = document.getElementById("addTab");
 
-/** @param {number} code status code @returns {string} CSS class for the dot */
+/**
+ * @param {number} code status code
+ * @returns {string} CSS class for the dot
+ */
 function statusClass(code) {
     switch (code) {
-        case 0: return "s-connecting";
-        case 1: case 4: return "s-connected";
-        case 3: return "s-failed";
-        default: return "s-disconnected"; // 2 disconnected, 5 auth failed
+        case 0:
+            return "s-connecting"; // blue
+        case 1:
+        case 4:
+            return "s-connected"; // green
+        case 3:
+            return "s-failed"; // yellow
+        default: // 2 disconnected, 5 auth failed
+            return "s-disconnected"; // red
     }
 }
 
-/** Updates just one tab's status dot. @param {string} id @param {number} code */
+/**
+ * Updates just one tab's status dot.
+ * @param {string} id
+ * @param {number} code
+ */
 function updateTabStatus(id, code) {
     const dot = tabsEl.querySelector(`.tab[data-id="${id}"] .tab-status`);
     if (dot) {
@@ -1014,7 +1172,9 @@ function updateTabStatus(id, code) {
     }
 }
 
-/** Rebuilds the tab strip from settings.sources. */
+/**
+ * Rebuilds the tab strip from settings.sources.
+ */
 function renderTabs() {
     tabsEl.innerHTML = "";
     for (const src of settings.sources) {
@@ -1048,14 +1208,19 @@ function renderTabs() {
     addTabBtn.disabled = settings.sources.length >= MAX_SOURCES;
 }
 
-/** Opens the config sidebar (used when adding a source to configure). */
+/**
+ * Opens the config sidebar (used when adding a source to configure).
+ */
 function openSidebar() {
     document.getElementById("config").style.transform = "translateX(0)";
     sideToggle.classList.remove("fa-bars");
     sideToggle.classList.add("fa-xmark");
 }
 
-/** Switches the UI to a different source. @param {string} id */
+/**
+ * Switches the UI to a different source.
+ * @param {string} id
+ */
 function switchTab(id) {
     if (id === settings.activeSourceId || !sessions.has(id)) {
         return;
@@ -1065,11 +1230,14 @@ function switchTab(id) {
     const src = activeSource();
     loadConnForm(src);
     loadRotation(src);
+    loadDeltaB(src);
     renderActive();
     renderTabs();
 }
 
-/** Adds a new, unconfigured source and switches to it. */
+/**
+ * Adds a new, unconfigured source and switches to it.
+ */
 function addTab() {
     if (settings.sources.length >= MAX_SOURCES) {
         return;
@@ -1081,13 +1249,17 @@ function addTab() {
     saveSettings();
     loadConnForm(src);
     loadRotation(src);
+    loadDeltaB(src);
     renderActive();
     renderTabs();
     openSidebar();
     srcName.focus();
 }
 
-/** Closes a source, its connection, and its session. @param {string} id */
+/**
+ * Closes a source, its connection, and its session.
+ * @param {string} id
+ */
 function closeTab(id) {
     const session = sessions.get(id);
     if (session && session.connection) {
@@ -1114,6 +1286,7 @@ function closeTab(id) {
     const src = activeSource();
     loadConnForm(src);
     loadRotation(src);
+    loadDeltaB(src);
     renderActive();
     renderTabs();
 }
@@ -1135,6 +1308,7 @@ srcName.addEventListener("input", () => {
 // ----------------------------------------------------------------------------
 loadConnForm(activeSource());
 loadRotation(activeSource());
+loadDeltaB(activeSource());
 refreshFilter();
 renderTabs();
 for (const src of settings.sources) {
@@ -1158,6 +1332,7 @@ for (const src of settings.sources) {
  * @prop {{url: string}} websocket
  * @prop {{broker: string, topic: string, username: string, password: string}} mqtt
  * @prop {{x: number, y: number, z: number}} transform
+ * @prop {{moving: boolean, h: number, e: number, z: number}} dB
  */
 
 /**

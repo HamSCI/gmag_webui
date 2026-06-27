@@ -89,6 +89,9 @@
                                 <input type="file" id="logfile" accept=".log" />
                                 <span class="field-error" id="fileErr"></span>
                             </label>
+                            <span class="field-error">
+                                <strong>NOTE:</strong> Large .log files will slow the dashboard!
+                            </span>
                         </div>
                         <button type="button" id="connectBtn" class="btn-primary">
                             <i class="fa-solid fa-plug"></i>
@@ -129,21 +132,35 @@
                             Save Rotation
                         </button>
                         <div class="subhead">
-                            <i class="fa-solid fa-wave-square"></i>
-                            <span>Moving average</span>
+                            <i id="delta" class="fa-regular fa-play"></i>
+                            <span>delta-B</span>
                         </div>
-                        <div id="filterGroup" class="select-group">
-                            <button type="button" name="off" disabled>Off</button>
-                            <button type="button" name="on">On</button>
+                        <div class="field">
+                            <span class="field-label">Calculation Method</span>
+                            <div id="dBType" class="select-group">
+                                <button type="button" name="constant" disabled>Constant dB</button>
+                                <button type="button" name="moving">Moving Average</button>
+                            </div>
                         </div>
-                        <label class="field">
-                            <span class="field-label">Window</span>
-                            <select id="filterWindow">
-                                <option value="10">10 seconds</option>
-                                <option value="30">30 seconds</option>
-                                <option value="60" selected>60 seconds</option>
-                            </select>
-                        </label>
+                        <div class="method-fields" data-type="constant">
+                            <label class="field">
+                                <span class="field-label">&Delta;H</span>
+                                <input type="number" id="dH" class="mono" placeholder="0.000" step="0.001" />
+                            </label>
+                            <label class="field">
+                                <span class="field-label">&Delta;E</span>
+                                <input type="number" id="dE" class="mono" placeholder="0.000" step="0.001" />
+                            </label>
+                            <label class="field">
+                                <span class="field-label">&Delta;Z</span>
+                                <input type="number" id="dZ" class="mono" placeholder="0.000" step="0.001" />
+                            </label>
+                        </div>
+                        <div class="method-fields" data-type="moving" hidden></div>
+                        <button type="button" id="savedB" class="btn-secondary">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Save dB
+                        </button>
                     </div>
                 </section>
 
@@ -163,6 +180,22 @@
                                 <option value="15m">15 Minutes</option>
                                 <option value="1h" selected>1 Hour</option>
                                 <!-- <option value="4h">4 Hours</option> -->
+                            </select>
+                        </label>
+                        <div class="subhead">
+                            <i class="fa-solid fa-wave-square"></i>
+                            <span>Moving average</span>
+                        </div>
+                        <div id="filterGroup" class="select-group">
+                            <button type="button" name="off" disabled>Off</button>
+                            <button type="button" name="on">On</button>
+                        </div>
+                        <label class="field">
+                            <span class="field-label">Window</span>
+                            <select id="filterWindow">
+                                <option value="10">10 seconds</option>
+                                <option value="30">30 seconds</option>
+                                <option value="60" selected>60 seconds</option>
                             </select>
                         </label>
                     </div>
