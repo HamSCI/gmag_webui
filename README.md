@@ -26,34 +26,45 @@ This repository is designed to be used alongside the HamSCI ground magnetometer.
 Instructions for setting up the magnetometer are available
 [here](https://hamsci.org/mag_install).
 
-An additional computer running Linux or macOS is required to host the
-magnetometer.
+A computer running Linux or macOS is required to host the magnetometer. The
+dashboard can be hosted on the same computer as the magnetometer or a separate
+client.
 * If using Linux, Ubuntu is recommended, but other distributions should also
   work.
 * If using macOS, Docker Desktop is required to run mag-usb.
-* Raspberry Pis and Windows are unsupported.
+* Windows is unsupported.
 
 ### Software
 
 [Mag-usb](https://github.com/wittend/mag-usb) must be installed on the host
 machine with WebSocket mode enabled.
 
+[Deno](https://deno.com) is used to serve the dashboard. Installing Deno is
+preferred for Linux clients.
+
 [Docker Desktop](https://www.docker.com/products/docker-desktop/) is preferred
-for running the project. The dashboard is served via a Deno container.
+for Windows or macOS clients. The project is run through a Deno container.
 
 ## Usage
 
 In the vendor folder, unzip the archive containing fontawesome.
 
-In a CLI, navigate to the project's root directory. Use `docker compose` to
-create a container:
+In a CLI, navigate to the project's root directory. Start the dashboard with
+Deno:
+
+```bash
+deno task dev
+```
+
+Or use `docker compose` to create a container:
 
 ```bash
 docker compose up -d frontend
 ```
 
 By default, the dashboard will be available at `localhost:8000`. However, the
-hostname and port can be changed as needed.
+hostname and port can be changed as needed through a .env file. A .env.example
+file is included to demonstrate how to configure the environment.
 
 The dashboard must be given a host to connect to before any data is displayed.
 The host is the IP address of the computer running mag-usb. A simple `ifconfig`
@@ -63,9 +74,6 @@ to the host field and the dashboard should display a "Connecting" status.
 If your dashboard does not show a "Connected" status within a few seconds or
 switches to a "Failed" status, check that you entered the host correctly, then
 check mag-usb to make sure it is configured correctly.
-
-The dashboard is currently limited to one host at a time. This can be mitigated
-by opening a duplicate dashboard in another tab.
 
 The dashboard will autoscroll with the most recently collected data. You can
 zoom in/pan on specific regions of the plots to disable the autoscroll behavior.

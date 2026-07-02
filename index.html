@@ -182,6 +182,13 @@
                                 <!-- <option value="4h">4 Hours</option> -->
                             </select>
                         </label>
+                        <label class="field">
+                            <span class="field-label">Show dB/dt</span>
+                            <div class="toggle-switch square">
+                                <input type="checkbox" name="dBdtToggle" id="dBdtToggle" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
                         <div class="subhead">
                             <i class="fa-solid fa-wave-square"></i>
                             <span>Moving average</span>
@@ -233,6 +240,10 @@
                             <div class="cell">
                                 <div class="cell-head">Temperature (&deg;C)</div>
                                 <div id="temp" class="cell-value">-</div>
+                            </div>
+                            <div class="cell" style="display:none">
+                                <div class="cell-head">dB/dt (nT/S)</div>
+                                <div id="dBdt" class="cell-value">-</div>
                             </div>
                         </div>
                     </div>
