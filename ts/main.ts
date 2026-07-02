@@ -1,4 +1,11 @@
-import { createMsgResp } from "./common.ts";
+import "@std/dotenv/load";
+
+function createMsgResp(status: number, msg: string): Response {
+    return new Response(JSON.stringify({ message: msg, }), {
+        status,
+        headers: { "Content-Type": "application/json" },
+    });
+}
 
 function getContentType(path: string): string {
     if (path === "/" || path.endsWith(".html")) {
