@@ -16,7 +16,7 @@ interface Global {
 
 interface Window extends Global {}
 
-interface MagUsbJson {
+declare interface MagUsbJson {
     ts: string;
     rt: number;
     x: number;
@@ -27,14 +27,14 @@ interface MagUsbJson {
 type ConnectionType = "websocket" | "mqtt";
 type SourceType = ConnectionType | "file";
 
-interface MQTTSettings {
+declare interface MQTTSettings {
     broker: string;
     topic: string;
     username?: string;
     password?: string;
 }
 
-interface ConnectionConfig {
+declare interface ConnectionConfig {
     type: ConnectionType;
     websocket: {
         url: string;
@@ -42,7 +42,7 @@ interface ConnectionConfig {
     mqtt: MQTTSettings;
 }
 
-interface Source {
+declare interface Source {
     id: string;
     name: string;
     type: SourceType;
@@ -63,7 +63,7 @@ interface Source {
     };
 }
 
-interface DashSettings {
+declare interface DashSettings {
     displayWindow: string;
     filter: {
         enabled: boolean;
@@ -73,7 +73,7 @@ interface DashSettings {
     activeSourceId: string;
 }
 
-interface Session {
+declare interface Session {
     id: string;
     measurements: Measurement[];
     sparklines: Measurement[];

@@ -6,8 +6,7 @@ RUN apt-get update -q && \
 
 WORKDIR /local
 
-# Prefer not to be on latest commit to ensure consistency. (This may change)
-RUN git clone --depth 1 --branch v0.0.6-beta https://github.com/wittend/mag-usb
+RUN git clone https://github.com/wittend/mag-usb
 
 RUN cd mag-usb && \
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_WEBSOCKET=ON && \
