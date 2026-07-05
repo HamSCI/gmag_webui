@@ -653,12 +653,17 @@ tr:nth-of-type(2n) {
     font-size: 18pt;
 }
 
-/* Src: https: //www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
+/* Src: https://www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
 .toggle-switch {
     position: relative;
     display: inline-block;
     width: 30px;
     height: 15px;
+}
+
+.toggle-switch.lg {
+    width: 60px;
+    height: 30px;
 }
 
 .toggle-switch input {
@@ -691,12 +696,21 @@ tr:nth-of-type(2n) {
     border-radius: 2px;
 }
 
+.toggle-switch.lg.square > .slider::before {
+    height: 26px;
+    width: 26px;
+}
+
 .square input:checked + .slider {
     background-color: #4caf50;
 }
 
 .square input:checked + .slider:before {
     transform: translateX(14px);
+}
+
+.toggle-switch.lg.square input:checked + .slider::before {
+    transform: translateX(30px);
 }
 
 #ldWrapper {

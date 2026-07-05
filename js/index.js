@@ -67,6 +67,7 @@ function defaultSettings() {
     const src = makeSource();
     return {
         displayWindow: "1h",
+        dBdt: false,
         filter: { enabled: false, windowSec: 60 },
         sources: [src],
         activeSourceId: src.id,
@@ -84,6 +85,9 @@ function migrateSettings(s) {
     }
     if (!s.displayWindow) {
         s.displayWindow = "1h";
+    }
+    if (!("dBdt" in s)) {
+        s.dBdt = false;
     }
     const hasSources = Array.isArray(s.sources) && s.sources.length > 0 &&
         s.sources[0] && s.sources[0].id;
@@ -520,6 +524,7 @@ function updateCurrentTable(m) {
     document.getElementById("z").textContent = dispVec[2].toFixed(3);
     document.getElementById("mag").textContent = dispVec.magnitude.toFixed(3);
     document.getElementById("temp").textContent = m.celsius.toFixed(2);
+    // document.getElementById("dBdt").textContent = ???;
 }
 
 // ----------------------------------------------------------------------------
@@ -993,6 +998,29 @@ timeSelect.addEventListener("change", ev => {
 });
 
 // ----------------------------------------------------------------------------
+// Display: dB/dt(shared)
+// ----------------------------------------------------------------------------
+const dBdtToggle = document.getElementById("dBdtToggle");
+dBdtToggle.checked = settings.dBdt;
+function updatedBdt() {
+    const row2 = document.querySelector(".row2");
+    const cell = row2.querySelector(".cell:last-of-type");
+    // TODO: Update the spreadsheet to include/exclude dB/dt column
+    if (settings.dBdt) {
+        row2.classList.add("dB");
+        cell.style.cssText = "";
+    } else {
+        row2.classList.remove("dB");
+        cell.style.display = "none";
+    }
+}
+dBdtToggle.addEventListener("change", ev => {
+    settings.dBdt = ev.target.checked;
+    saveSettings();
+    updatedBdt();
+})
+
+// ----------------------------------------------------------------------------
 // Connection panel
 // ----------------------------------------------------------------------------
 const srcName = document.getElementById("srcName");
@@ -1311,6 +1339,7 @@ loadRotation(activeSource());
 loadDeltaB(activeSource());
 refreshFilter();
 renderTabs();
+updatedBdt();
 for (const src of settings.sources) {
     connectSession(sessions.get(src.id));
 }
@@ -1338,6 +1367,7 @@ for (const src of settings.sources) {
 /**
  * @typedef {object} DashSettings
  * @prop {string} displayWindow
+ * @prop {boolean} dBdt
  * @prop {{enabled: boolean, windowSec: number}} filter
  * @prop {Source[]} sources
  * @prop {string} activeSourceId
