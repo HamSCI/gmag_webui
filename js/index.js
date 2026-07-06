@@ -1,7 +1,7 @@
 /// <reference path="./index.d.ts" />
 import Measurement from "./Measurement.js";
 import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
-import { trailingAverageAt, movingAverage } from "./filter.js";
+import { trailingAverageAt, movingAverage, trailingScalarMean } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
 import Vector from "./Vector.js";
@@ -275,39 +275,23 @@ function rotatedHEZ(m) {
 }
 
 /**
- * Applies a delta-Baseline to a vector.
- *
- * Assumption: v is in HEZ.
- * @param {Vector} v the vector to adjust
- * @param {number} [idx=1] the index in the array to get (only applicable if dB
- * is set to moving average)
- * @returns {Vector} v - dB
+ * Subtracts the active source's delta-B baseline from a (rotated HEZ) vector.
+ * The baseline is a fixed HEZ triple: for the Constant method it's the values
+ * the user typed; for the Moving Average method it's the trailing moving
+ * average snapshotted when the user saved (see the Save dB handler). Either way
+ * this is a cheap fixed subtraction — no per-point recomputation.
+ * @param {Vector} v a rotated HEZ vector
+ * @returns {Vector} v - baseline
  */
-function applyDeltaB(v, idx = 1) {
-    const { transform: { x, y, z } } = activeSource();
-    /** @type {number[]} */
-    let deltaB;
-    if (activeSource().dB.moving) {
-        const { measurements } = activeSession();
-        deltaB = trailingAverageAt(measurements,
-            measurements.length - idx, settings.filter.windowSec)
-            .HEZ
-            .rotate("x", x, false)
-            .rotate("y", y, false)
-            .rotate("z", z, false);
-    } else {
-        const { dB: { h, e, z } } = activeSource();
-        deltaB = [h, e, z];
-    }
-    return v.delta(...deltaB);
+function applyDeltaB(v) {
+    const { dB: { h, e, z } } = activeSource();
+    return v.delta(h, e, z);
 }
 
-/**
- * @returns {boolean}
- */
+/** @returns {boolean} whether a non-zero delta-B baseline is set */
 function usesDeltaB() {
-    const { dB: { moving, h, e, z } } = activeSource();
-    return moving || (h || e || z);
+    const { dB: { h, e, z } } = activeSource();
+    return h !== 0 || e !== 0 || z !== 0;
 }
 
 /** Resets both plots to their initial empty state (full re-init). */
@@ -321,20 +305,31 @@ function resetPlots() {
  * the active source's buffer and redraws traces 5-9 in a single restyle.
  */
 function recomputeFiltered() {
-    const smoothed = movingAverage(
-        activeSession().measurements, settings.filter.windowSec);
+    const ms = activeSession().measurements;
+    const windowSec = settings.filter.windowSec;
+    const db = usesDeltaB();
+    const smoothed = movingAverage(ms, windowSec);
     const x = smoothed.map(m => m.ts);
-    let vectors = smoothed.map(rotatedHEZ);
-    if (usesDeltaB()) {
-        vectors = vectors.map(applyDeltaB);
-    }
+    // H/E/Z overlay: the moving average of the vector (linear, so this is the
+    // smoothing of each displayed component).
+    const vectors = db
+        ? smoothed.map(m => applyDeltaB(rotatedHEZ(m)))
+        : smoothed.map(rotatedHEZ);
+    // Magnitude overlay: smooth the displayed magnitude itself (average of the
+    // per-sample magnitudes), not |averaged vector| — the latter collapses
+    // under delta-B because the deviations cancel directionally.
+    const dispMag = ms.map(m => {
+        const v = db ? applyDeltaB(rotatedHEZ(m)) : rotatedHEZ(m);
+        return v.magnitude;
+    });
+    const magFilter = trailingScalarMean(ms, dispMag, windowSec);
     Plotly.restyle(plotsDiv, {
         x: FILTER_TRACES.map(() => x),
         y: [
             vectors.map(v => v[0]),
             vectors.map(v => v[1]),
             vectors.map(v => v[2]),
-            vectors.map(v => parseFloat(v.magnitude.toFixed(3))),
+            magFilter.map(v => parseFloat(v.toFixed(3))),
             smoothed.map(m => m.celsius),
         ],
     }, FILTER_TRACES);
@@ -360,28 +355,19 @@ function refreshFilter() {
 }
 
 function updateCoordGraphs() {
-    const vectors = activeSession().measurements.map(rotatedHEZ);
-
-    /** @type {[0, 1, 2]} */
-    const traces = [0, 1, 2];
-
-    // Depending on what we have, what we update changes:
-    // 1. If we only have rotation, then only coordinate graphs change.
-    // 2. If we have any dB, all vector plots change.
-    if (!usesDeltaB()) {
-        Plotly.restyle(plotsDiv, {
-            y: traces.map(t => vectors.map(v => v[t]))
-        }, traces);
-    } else {
-        const vectorsdB = vectors.map(applyDeltaB);
-        const newTraces = traces.map(t => vectorsdB.map(v => v[t]));
-        newTraces.push(vectorsdB.map(v => v.magnitude));
-        Plotly.restyle(plotsDiv, {
-            y: newTraces
-        }, traces.concat(3));
-    }
-
-    // The smoothed overlay depends on the same rotation, so rebuild it too.
+    const raw = activeSession().measurements.map(rotatedHEZ);
+    const vectors = usesDeltaB() ? raw.map(applyDeltaB) : raw;
+    // Always restyle H/E/Z and magnitude together, so toggling dB on or off
+    // never leaves a stale trace behind (magnitude in particular).
+    Plotly.restyle(plotsDiv, {
+        y: [
+            vectors.map(v => v[0]),
+            vectors.map(v => v[1]),
+            vectors.map(v => v[2]),
+            vectors.map(v => parseFloat(v.magnitude.toFixed(3))),
+        ],
+    }, [0, 1, 2, 3]);
+    // The smoothed overlay depends on the same data, so rebuild it too.
     if (settings.filter.enabled) {
         recomputeFiltered();
     }
@@ -433,19 +419,31 @@ function extendAllTraces(measurement) {
     // computed: we can append the newest one rather than rebuilding the series.
     if (settings.filter.enabled) {
         const ms = activeSession().measurements;
-        const smoothed = trailingAverageAt(
-            ms, ms.length - 1, settings.filter.windowSec);
-        let filtVec = rotatedHEZ(smoothed);
-        if (usesDeltaB()) {
-            filtVec = applyDeltaB(filtVec);
+        const windowSec = settings.filter.windowSec;
+        const db = usesDeltaB();
+        const smoothed = trailingAverageAt(ms, ms.length - 1, windowSec);
+        // H/E/Z: vector moving average.
+        const filtVec = db
+            ? applyDeltaB(rotatedHEZ(smoothed))
+            : rotatedHEZ(smoothed);
+        // Magnitude: trailing average of the displayed magnitude (see
+        // recomputeFiltered), computed over the window ending at this sample.
+        const startMs = measurement.ts.getTime() - (windowSec * 1000);
+        let magSum = 0, magCount = 0;
+        for (let i = ms.length - 1; i >= 0; i--) {
+            if (ms[i].ts.getTime() < startMs) break;
+            const v = db ? applyDeltaB(rotatedHEZ(ms[i])) : rotatedHEZ(ms[i]);
+            magSum += v.magnitude;
+            magCount++;
         }
+        const filtMag = magCount ? magSum / magCount : 0;
         Plotly.extendTraces(plotsDiv, {
             x: [[ts], [ts], [ts], [ts], [ts]],
             y: [
                 [filtVec[0]],
                 [filtVec[1]],
                 [filtVec[2]],
-                [parseFloat(filtVec.magnitude.toFixed(3))],
+                [parseFloat(filtMag.toFixed(3))],
                 [smoothed.celsius],
             ],
         }, FILTER_TRACES);
@@ -462,13 +460,43 @@ function updateSparks() {
 }
 
 /**
- * Builds the spreadsheet table row for a measurement, applying the active
- * source's coordinate transform. The moving-average filter intentionally does
- * not affect the spreadsheet — it always shows the rotated raw reading.
+ * Rate of change of the field magnitude between two readings, in nT/s. Uses the
+ * rotated raw magnitude (independent of any delta-B baseline) over the actual
+ * elapsed time, so it stays correct even if the feed isn't exactly 1 Hz.
+ * @param {Measurement} curr
+ * @param {Measurement} prev
+ * @returns {number} nT/s (0 if the timestamps don't advance)
+ */
+function dBdtValue(curr, prev) {
+    const dtSec = (curr.ts.getTime() - prev.ts.getTime()) / 1000;
+    if (dtSec <= 0) {
+        return 0;
+    }
+    return (rotatedHEZ(curr).magnitude - rotatedHEZ(prev).magnitude) / dtSec;
+}
+
+/**
+ * Formats a value with an explicit sign (+, -, or ± for zero).
+ * @param {number} v
+ * @returns {string}
+ */
+function formatSigned(v) {
+    const s = v.toFixed(3);
+    if (parseFloat(s) === 0) {
+        return `±${(0).toFixed(3)}`;
+    }
+    return v > 0 ? `+${s}` : s;
+}
+
+/**
+ * Builds a spreadsheet row for a measurement, applying rotation and (if set)
+ * the delta-B baseline. The trailing dB/dt cell is computed against the
+ * previous reading and is shown/hidden via the #spreadsheet `.show-dbdt` class.
  * @param {Measurement} measurement
+ * @param {Measurement} [prev] the previous reading, for dB/dt
  * @returns {string} the `<tr>` markup for this measurement
  */
-function spreadsheetRowHTML(measurement) {
+function spreadsheetRowHTML(measurement, prev) {
     // Local time on the client end, for the operator's convenience.
     const date = new Intl.DateTimeFormat("en-US", {
         hour12: false,
@@ -484,6 +512,7 @@ function spreadsheetRowHTML(measurement) {
     if (usesDeltaB()) {
         dispVector = applyDeltaB(dispVector);
     }
+    const dBdt = prev ? formatSigned(dBdtValue(measurement, prev)) : "–";
 
     return `
         <tr>
@@ -493,6 +522,7 @@ function spreadsheetRowHTML(measurement) {
             <td>${dispVector[2].toFixed(3)}</td>
             <td>${dispVector.magnitude.toFixed(3)}</td>
             <td>${measurement.celsius.toFixed(2)}</td>
+            <td class="col-dbdt">${dBdt}</td>
         </tr>`;
 }
 
@@ -501,16 +531,18 @@ function spreadsheetRowHTML(measurement) {
  * @param {Measurement} measurement
  */
 function addSpreadsheetRow(measurement) {
+    const ms = activeSession().measurements;
     document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
-        "afterbegin", spreadsheetRowHTML(measurement));
+        "afterbegin", spreadsheetRowHTML(measurement, ms[ms.length - 2]));
     // TODO: Remove last row once we're at max buffer size?
 }
 
 /** Rebuilds every spreadsheet row from the active source's buffer. */
 function rebuildSpreadsheet() {
     // measurements run oldest -> newest, but the table shows newest at the top.
+    const ms = activeSession().measurements;
     document.querySelector("#spreadsheet table tbody").innerHTML =
-        activeSession().measurements.map(spreadsheetRowHTML).reverse().join("");
+        ms.map((m, i) => spreadsheetRowHTML(m, ms[i - 1])).reverse().join("");
 }
 
 /**
@@ -522,28 +554,24 @@ function updateCurrentTable(m) {
     if (usesDeltaB()) {
         dispVec = applyDeltaB(dispVec);
     }
-
-    let dB = "±0.000";
-    if (ms.length > 1) {
-        let prev = rotatedHEZ(ms[ms.length - 2]);
-        if (usesDeltaB()) {
-            prev = applyDeltaB(prev, 2);
-        }
-        const diff = dispVec.magnitude - prev.magnitude;
-        dB = diff.toFixed(3);
-        if (parseFloat(dB) === 0) {
-            dB = `±${dB}`;
-        } else if (dB.charAt(0) !== "-") {
-            dB = `+${dB}`;
-        }
-    }
+    const dBdt = ms.length > 1
+        ? formatSigned(dBdtValue(m, ms[ms.length - 2]))
+        : "±0.000";
 
     document.getElementById("h").textContent = dispVec[0].toFixed(3);
     document.getElementById("e").textContent = dispVec[1].toFixed(3);
     document.getElementById("z").textContent = dispVec[2].toFixed(3);
     document.getElementById("mag").textContent = dispVec.magnitude.toFixed(3);
     document.getElementById("temp").textContent = m.celsius.toFixed(2);
-    document.getElementById("dBdt").textContent = dB;
+    document.getElementById("dBdt").textContent = dBdt;
+}
+
+/** Re-renders the Current Reading panel from the newest reading, if any. */
+function refreshCurrentReading() {
+    const ms = activeSession().measurements;
+    if (ms.length > 0) {
+        updateCurrentTable(ms[ms.length - 1]);
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -910,6 +938,7 @@ document.getElementById("saveRot").addEventListener("click", () => {
     saveSettings();
     updateCoordGraphs();
     rebuildSpreadsheet();
+    refreshCurrentReading();
 });
 
 // ----------------------------------------------------------------------------
@@ -942,17 +971,45 @@ const dZ = document.getElementById("dZ");
 
 document.getElementById("savedB").addEventListener("click", () => {
     const src = activeSource();
-    const field = document.querySelector("#dBType button:disabled").name;
-    const isMoving = field === "moving";
-    src.dB.moving = isMoving;
-    if (!isMoving) {
-        src.dB.h = dH.valueAsNumber;
-        src.dB.e = dE.valueAsNumber;
-        src.dB.z = dZ.valueAsNumber;
+    const method = document.querySelector("#dBType button:disabled").name;
+    src.dB.moving = method === "moving";
+    if (method === "moving") {
+        // Snapshot the current trailing moving average as a fixed baseline.
+        const ms = activeSession().measurements;
+        if (ms.length === 0) {
+            return; // nothing to baseline against yet
+        }
+        const base = rotatedHEZ(
+            trailingAverageAt(ms, ms.length - 1, settings.filter.windowSec));
+        src.dB.h = base[0];
+        src.dB.e = base[1];
+        src.dB.z = base[2];
+        dH.value = base[0];
+        dE.value = base[1];
+        dZ.value = base[2];
+    } else {
+        src.dB.h = dH.valueAsNumber || 0;
+        src.dB.e = dE.valueAsNumber || 0;
+        src.dB.z = dZ.valueAsNumber || 0;
     }
     saveSettings();
     updateCoordGraphs();
     rebuildSpreadsheet();
+    refreshCurrentReading();
+});
+
+// Reset delta-B back to zero (absolute view).
+document.getElementById("resetdB").addEventListener("click", () => {
+    const src = activeSource();
+    src.dB = { moving: false, h: 0, e: 0, z: 0 };
+    dH.value = "";
+    dE.value = "";
+    dZ.value = "";
+    showMethodFields("constant");
+    saveSettings();
+    updateCoordGraphs();
+    rebuildSpreadsheet();
+    refreshCurrentReading();
 });
 
 /**
@@ -1032,6 +1089,9 @@ function updatedBdt() {
         row2.classList.remove("dB");
         cell.style.display = "none";
     }
+    // Show/hide the spreadsheet's dB/dt column to match.
+    document.getElementById("spreadsheet")
+        .classList.toggle("show-dbdt", settings.dBdt);
 }
 dBdtToggle.addEventListener("change", ev => {
     settings.dBdt = ev.target.checked;

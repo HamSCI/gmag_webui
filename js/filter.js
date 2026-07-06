@@ -58,3 +58,27 @@ export function movingAverage(measurements, windowSec) {
     return measurements.map((_, i) =>
         trailingAverageAt(measurements, i, windowSec));
 }
+
+/**
+ * Trailing moving average of a scalar series aligned 1:1 with `measurements`,
+ * using the same time-window semantics as trailingAverageAt. Used for the
+ * magnitude overlay, which must smooth the (nonlinear) displayed magnitude
+ * directly — averaging the per-sample magnitudes — rather than take the
+ * magnitude of the averaged vector (which collapses under delta-B).
+ * @param {Measurement[]} measurements ascending by time
+ * @param {number[]} values one scalar per measurement
+ * @param {number} windowSec trailing window length, in seconds
+ * @returns {number[]} trailing means, aligned 1:1 with `measurements`
+ */
+export function trailingScalarMean(measurements, values, windowSec) {
+    return measurements.map((_, end) => {
+        const startMs = measurements[end].ts.getTime() - (windowSec * 1000);
+        let sum = 0, count = 0;
+        for (let i = end; i >= 0; i--) {
+            if (measurements[i].ts.getTime() < startMs) break;
+            sum += values[i];
+            count++;
+        }
+        return sum / count;
+    });
+}

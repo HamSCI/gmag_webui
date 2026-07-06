@@ -211,6 +211,11 @@ table {
 .fixed-head {
     display: block;
     flex: 0 0 auto;
+    /* Reserve the same scrollbar gutter the body reserves, so the header
+       columns stay aligned with the data whether or not the body scrolls.
+       overflow-y: hidden keeps the header itself unscrollable / gutter-only. */
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
 }
 
 .scrolling {
@@ -218,6 +223,9 @@ table {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* Always reserve the scrollbar gutter (even before the body overflows) so
+       the columns don't shift when the scrollbar appears. */
+    scrollbar-gutter: stable;
 }
 
 .fixed-head tr,
@@ -232,6 +240,11 @@ table {
 .scrolling td:first-child {
     width: 25%;
     white-space: nowrap;
+}
+
+/* dB/dt column (issue #29): shown only when "Show dB/dt" is enabled. */
+#spreadsheet:not(.show-dbdt) .col-dbdt {
+    display: none;
 }
 
 thead th {
