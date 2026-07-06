@@ -279,16 +279,18 @@ function rotatedHEZ(m) {
  *
  * Assumption: v is in HEZ.
  * @param {Vector} v the vector to adjust
+ * @param {number} [idx=1] the index in the array to get (only applicable if dB
+ * is set to moving average)
  * @returns {Vector} v - dB
  */
-function applyDeltaB(v) {
+function applyDeltaB(v, idx = 1) {
     const { transform: { x, y, z } } = activeSource();
     /** @type {number[]} */
     let deltaB;
     if (activeSource().dB.moving) {
         const { measurements } = activeSession();
         deltaB = trailingAverageAt(measurements,
-            measurements.length - 1, settings.filter.windowSec)
+            measurements.length - idx, settings.filter.windowSec)
             .HEZ
             .rotate("x", x, false)
             .rotate("y", y, false)
@@ -515,16 +517,31 @@ function rebuildSpreadsheet() {
  * @param {Measurement} m
  */
 function updateCurrentTable(m) {
+    const { measurements: ms } = activeSession();
     let dispVec = rotatedHEZ(m);
     if (usesDeltaB()) {
         dispVec = applyDeltaB(dispVec);
     }
+
+    let dB = "0.000";
+    if (ms.length > 1) {
+        let prev = rotatedHEZ(ms[ms.length - 2]);
+        if (usesDeltaB()) {
+            prev = applyDeltaB(prev, 2);
+        }
+        const diff = dispVec.magnitude - prev.magnitude;
+        dB = diff.toFixed(3);
+        if (dB.charAt(0) !== "-") {
+            dB = `+${dB}`;
+        }
+    }
+
     document.getElementById("h").textContent = dispVec[0].toFixed(3);
     document.getElementById("e").textContent = dispVec[1].toFixed(3);
     document.getElementById("z").textContent = dispVec[2].toFixed(3);
     document.getElementById("mag").textContent = dispVec.magnitude.toFixed(3);
     document.getElementById("temp").textContent = m.celsius.toFixed(2);
-    // document.getElementById("dBdt").textContent = ???;
+    document.getElementById("dBdt").textContent = dB;
 }
 
 // ----------------------------------------------------------------------------
