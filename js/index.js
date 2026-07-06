@@ -523,7 +523,7 @@ function updateCurrentTable(m) {
         dispVec = applyDeltaB(dispVec);
     }
 
-    let dB = "0.000";
+    let dB = "±0.000";
     if (ms.length > 1) {
         let prev = rotatedHEZ(ms[ms.length - 2]);
         if (usesDeltaB()) {
@@ -531,7 +531,9 @@ function updateCurrentTable(m) {
         }
         const diff = dispVec.magnitude - prev.magnitude;
         dB = diff.toFixed(3);
-        if (dB.charAt(0) !== "-") {
+        if (parseFloat(dB) === 0) {
+            dB = `±${dB}`;
+        } else if (dB.charAt(0) !== "-") {
             dB = `+${dB}`;
         }
     }
