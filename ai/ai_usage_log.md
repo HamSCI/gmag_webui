@@ -79,4 +79,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/index.js` (delta-B snapshot baseline + O(1) applyDeltaB, Reset handler, updateCoordGraphs, dB/dt via real Δt, spreadsheet dB/dt column, magnitude filter via avg-of-magnitudes), `js/filter.js` (new trailingScalarMean helper), `index.html` (Reset (absolute) button, dB/dt table header), `css/index.css` (dB/dt column show/hide, scrollbar-gutter alignment for the fixed header + scrolling body)
 - **Nature of Contribution**: Code generation (features + bug fixes)
 - **Human Review Status**: Reviewed and verified (delta-B constant/moving, no overlay cancellation, reset, dB/dt value + column toggle, magnitude filter tracking the raw scatter, and header/data column alignment all verified via headless browser plus a numeric check against the real filter code; author confirmed the alignment fix)
-- **Git Hash**: [pending]
+- **Git Hash**: 34a998d
