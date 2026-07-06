@@ -216,6 +216,7 @@ table {
        overflow-y: hidden keeps the header itself unscrollable / gutter-only. */
     overflow-y: hidden;
     scrollbar-gutter: stable;
+    background-color: #333;
 }
 
 .scrolling {
