@@ -167,6 +167,12 @@ footer {
     margin-right: 12px;
 }
 
+.flex-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+}
+
 #wordmark {
     font-size: 16pt;
     margin-left: 16px;
