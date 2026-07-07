@@ -87,4 +87,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/filter.js` (new `slidingWindowMeans` O(N) helper), `js/index.js` (`recomputeFiltered` single-pass rewrite; spreadsheet virtualization — `spacerRow`/`windowRows`/`renderSpreadsheet`/`resetSpreadsheet`, rewritten `rebuildSpreadsheet`/`addSpreadsheetRow`, shared `DATE_FMT`, scroll handler; `loadLogFile`/`renderActive`/`clearActiveView` repointed at the virtualized renderer), `css/index.css` (`.stripe`-class striping and `.spacer` rows for the virtualized body)
 - **Nature of Contribution**: Code generation (performance optimization)
 - **Human Review Status**: Reviewed and verified (86,400-row import measured at ~3.2s with 35 DOM rows; filter=86,400 points, range=24h; scroll top/mid/bottom show newest/midday/oldest with the body bounded to 325px; live WebSocket path prepends newest-first and updates the Current Reading — all verified via headless Chromium against a day-size log and a fake WS host)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: eb039f3
