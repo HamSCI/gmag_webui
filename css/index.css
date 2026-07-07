@@ -474,6 +474,12 @@ tr:nth-of-type(2n) {
     font-weight: 700;
     cursor: pointer;
 }
+.btn-primary.sm {
+    border-radius: 4px;
+    padding: 4px;
+    font-size: 9px;
+    font-weight: 500;
+}
 .btn-primary {
     background-color: var(--col-btn-inactive);
     color: #fff;

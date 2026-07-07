@@ -835,6 +835,9 @@ function renderActive() {
     updateLock = false;
 }
 
+// ----------------------------------------------------------------------------
+// Import: Load JSONL
+// ----------------------------------------------------------------------------
 /**
  * Loads a JSONL .log file into the active session, replacing its buffer.
  * @param {File} file the .log file selected by the user
@@ -887,6 +890,37 @@ function loadLogFile(file) {
             setHeaderStatus(4);
         });
 }
+
+// ----------------------------------------------------------------------------
+// Spreadsheet: Export JSONL/CSV (Active Source)
+// ----------------------------------------------------------------------------
+function exportFile(filename, text, mime) {
+    const url = URL.createObjectURL(new Blob([text], { type: mime }));
+    const a = Object.assign(document.createElement("a"), {
+        href: url,
+        download: filename
+    });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+document.getElementById("jsonl").addEventListener("click", ev => {
+    const { name } = activeSource();
+    const { measurements } = activeSession();
+    const ts = measurements[measurements.length - 1].ts.toISOString();
+    const jsonls = measurements.map(m => m.toJSONL());
+    const buffer = jsonls.join("\n");
+    exportFile(`${name}_${ts}.log`, buffer, "text/plain");
+});
+document.getElementById("csv").addEventListener("click", ev => {
+    const { name } = activeSource();
+    const { measurements } = activeSession();
+    const ts = measurements[measurements.length - 1].ts.toISOString();
+    const csvs = activeSession().measurements.map(m => m.toCSV());
+    const buffer = `\uFEFFts,rt,x,y,z\n${csvs.join("\n")}`;
+    exportFile(`${name}_${ts}.csv`, buffer, "text/csv");
+});
 
 // ----------------------------------------------------------------------------
 // Sidebar: toggle
