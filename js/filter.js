@@ -82,3 +82,43 @@ export function trailingScalarMean(measurements, values, windowSec) {
         return sum / count;
     });
 }
+
+/**
+ * O(N) trailing moving average over a time window for several parallel scalar
+ * series at once, using a running sum (advance-two-pointers) instead of
+ * re-summing the window per point. Same trailing-window semantics as
+ * trailingAverageAt: each output at index i averages every sample whose
+ * timestamp is within (times[i] - windowSec, times[i]].
+ *
+ * This is what the overlay recompute uses at day-size loads (86,400+ points),
+ * where the O(N·W) per-point approach and per-point object construction are the
+ * dominant cost.
+ *
+ * @param {number[]} times ascending millisecond timestamps
+ * @param {number[][]} series parallel scalar arrays, each aligned with `times`
+ * @param {number} windowSec trailing window length, in seconds
+ * @returns {number[][]} one averaged array per input series, aligned with `times`
+ */
+export function slidingWindowMeans(times, series, windowSec) {
+    const winMs = windowSec * 1000;
+    const k = series.length;
+    const sums = new Array(k).fill(0);
+    const out = series.map(() => new Array(times.length));
+    let left = 0;
+    for (let end = 0; end < times.length; end++) {
+        for (let s = 0; s < k; s++) {
+            sums[s] += series[s][end];
+        }
+        while (times[left] < times[end] - winMs) {
+            for (let s = 0; s < k; s++) {
+                sums[s] -= series[s][left];
+            }
+            left++;
+        }
+        const n = end - left + 1;
+        for (let s = 0; s < k; s++) {
+            out[s][end] = sums[s] / n;
+        }
+    }
+    return out;
+}

@@ -1,7 +1,7 @@
 /// <reference path="./index.d.ts" />
 import Measurement from "./Measurement.js";
 import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
-import { trailingAverageAt, movingAverage, trailingScalarMean } from "./filter.js";
+import { trailingAverageAt, slidingWindowMeans } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
 import Vector from "./Vector.js";
@@ -308,30 +308,32 @@ function recomputeFiltered() {
     const ms = activeSession().measurements;
     const windowSec = settings.filter.windowSec;
     const db = usesDeltaB();
-    const smoothed = movingAverage(ms, windowSec);
-    const x = smoothed.map(m => m.ts);
-    // H/E/Z overlay: the moving average of the vector (linear, so this is the
-    // smoothing of each displayed component).
-    const vectors = db
-        ? smoothed.map(m => applyDeltaB(rotatedHEZ(m)))
-        : smoothed.map(rotatedHEZ);
-    // Magnitude overlay: smooth the displayed magnitude itself (average of the
-    // per-sample magnitudes), not |averaged vector| — the latter collapses
-    // under delta-B because the deviations cancel directionally.
-    const dispMag = ms.map(m => {
-        const v = db ? applyDeltaB(rotatedHEZ(m)) : rotatedHEZ(m);
-        return v.magnitude;
-    });
-    const magFilter = trailingScalarMean(ms, dispMag, windowSec);
+
+    // One O(N) pass: build per-sample displayed components + magnitude, then
+    // sliding-window-average all five series at once. H/E/Z are the vector
+    // average (linear); magnitude averages the per-sample magnitude (so it
+    // doesn't collapse under delta-B). No per-point Measurement construction.
+    const n = ms.length;
+    const times = new Array(n);
+    const x = new Array(n);
+    const H = new Array(n), E = new Array(n), Z = new Array(n);
+    const T = new Array(n), M = new Array(n);
+    for (let i = 0; i < n; i++) {
+        const m = ms[i];
+        let v = rotatedHEZ(m);
+        if (db) {
+            v = applyDeltaB(v);
+        }
+        times[i] = m.ts.getTime();
+        x[i] = m.ts;
+        H[i] = v[0]; E[i] = v[1]; Z[i] = v[2];
+        T[i] = m.celsius; M[i] = v.magnitude;
+    }
+    const [mh, me, mz, mt, mmag] =
+        slidingWindowMeans(times, [H, E, Z, T, M], windowSec);
     Plotly.restyle(plotsDiv, {
         x: FILTER_TRACES.map(() => x),
-        y: [
-            vectors.map(v => v[0]),
-            vectors.map(v => v[1]),
-            vectors.map(v => v[2]),
-            magFilter.map(v => parseFloat(v.toFixed(3))),
-            smoothed.map(m => m.celsius),
-        ],
+        y: [mh, me, mz, mmag.map(v => parseFloat(v.toFixed(3))), mt],
     }, FILTER_TRACES);
 }
 
@@ -496,54 +498,129 @@ function formatSigned(v) {
  * @param {Measurement} [prev] the previous reading, for dB/dt
  * @returns {string} the `<tr>` markup for this measurement
  */
-function spreadsheetRowHTML(measurement, prev) {
-    // Local time on the client end, for the operator's convenience.
-    const date = new Intl.DateTimeFormat("en-US", {
-        hour12: false,
-        month: "numeric",
-        day: "numeric",
-        year: "2-digit",
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit"
-    }).format(measurement.ts);
+// One shared formatter — creating a new Intl.DateTimeFormat per row was a major
+// cost at day-size.
+const DATE_FMT = new Intl.DateTimeFormat("en-US", {
+    hour12: false, month: "numeric", day: "numeric", year: "2-digit",
+    hour: "numeric", minute: "2-digit", second: "2-digit",
+});
 
-    let dispVector = rotatedHEZ(measurement);
+/**
+ * Builds one spreadsheet row. `d` is the display index (newest-first), used for
+ * stable zebra striping under virtualization.
+ * @param {Measurement} measurement
+ * @param {Measurement} [prev] the previous reading in time, for dB/dt
+ * @param {number} d display index (0 = newest)
+ * @returns {string} the `<tr>` markup
+ */
+function spreadsheetRowHTML(measurement, prev, d) {
+    const date = DATE_FMT.format(measurement.ts);
+    let v = rotatedHEZ(measurement);
     if (usesDeltaB()) {
-        dispVector = applyDeltaB(dispVector);
+        v = applyDeltaB(v);
     }
     const dBdt = prev ? formatSigned(dBdtValue(measurement, prev)) : "–";
-
+    const stripe = d % 2 ? ' class="stripe"' : "";
     return `
-        <tr>
+        <tr${stripe}>
             <td>${date}</td>
-            <td>${dispVector[0].toFixed(3)}</td>
-            <td>${dispVector[1].toFixed(3)}</td>
-            <td>${dispVector[2].toFixed(3)}</td>
-            <td>${dispVector.magnitude.toFixed(3)}</td>
+            <td>${v[0].toFixed(3)}</td>
+            <td>${v[1].toFixed(3)}</td>
+            <td>${v[2].toFixed(3)}</td>
+            <td>${v.magnitude.toFixed(3)}</td>
             <td>${measurement.celsius.toFixed(2)}</td>
             <td class="col-dbdt">${dBdt}</td>
         </tr>`;
 }
 
-/**
- * Prepends a measurement's row to the top of the spreadsheet (newest first).
- * @param {Measurement} measurement
- */
-function addSpreadsheetRow(measurement) {
-    const ms = activeSession().measurements;
-    document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
-        "afterbegin", spreadsheetRowHTML(measurement, ms[ms.length - 2]));
-    // TODO: Remove last row once we're at max buffer size?
+// ---- Spreadsheet virtualization ---------------------------------------------
+// The buffer can hold a full day (86,400 rows); rendering every row is ~7.5s +
+// huge memory. Instead we render only the rows visible in the scroll viewport
+// (plus a small overscan) and reserve the off-screen height with two spacer
+// rows. (Padding on the scrolling tbody can't be used here: as a flex child it
+// keeps its own padding in its min-size, so a day-size padding would blow past
+// the flex bound and defeat the scroll viewport — a spacer <tr> is shrinkable.)
+const spreadsheetBody = document.querySelector("#spreadsheet table tbody");
+const ROW_OVERSCAN = 8;
+let rowHeight = 0;
+
+/** A spacer row reserving `px` of off-screen scroll height. */
+function spacerRow(px) {
+    return px > 0
+        ? `<tr class="spacer" style="height:${px}px"><td colspan="7"></td></tr>`
+        : "";
 }
 
-/** Rebuilds every spreadsheet row from the active source's buffer. */
-function rebuildSpreadsheet() {
-    // measurements run oldest -> newest, but the table shows newest at the top.
-    const ms = activeSession().measurements;
-    document.querySelector("#spreadsheet table tbody").innerHTML =
-        ms.map((m, i) => spreadsheetRowHTML(m, ms[i - 1])).reverse().join("");
+/**
+ * Builds rows for display indices [first, last). Display index 0 is the newest
+ * reading (the table shows newest at the top).
+ * @param {Measurement[]} ms @param {number} n @param {number} first @param {number} last
+ */
+function windowRows(ms, n, first, last) {
+    let s = "";
+    for (let d = first; d < last; d++) {
+        const idx = n - 1 - d;
+        s += spreadsheetRowHTML(ms[idx], ms[idx - 1], d);
+    }
+    return s;
 }
+
+/** Renders only the rows visible at the current scroll position. */
+function renderSpreadsheet() {
+    const ms = activeSession().measurements;
+    const n = ms.length;
+    if (n === 0) {
+        spreadsheetBody.innerHTML = "";
+        return;
+    }
+    if (!rowHeight) {
+        // Measure a real row once to size the virtual scroll.
+        spreadsheetBody.innerHTML = windowRows(ms, n, 0, Math.min(n, 40));
+        rowHeight = (spreadsheetBody.firstElementChild &&
+            spreadsheetBody.firstElementChild.offsetHeight) || 20;
+    }
+    const viewH = spreadsheetBody.clientHeight || 400;
+    const first = Math.max(0,
+        Math.floor(spreadsheetBody.scrollTop / rowHeight) - ROW_OVERSCAN);
+    const count = Math.ceil(viewH / rowHeight) + ROW_OVERSCAN * 2;
+    const last = Math.min(n, first + count);
+    spreadsheetBody.innerHTML =
+        spacerRow(first * rowHeight) +
+        windowRows(ms, n, first, last) +
+        spacerRow((n - last) * rowHeight);
+}
+
+/** Re-renders the visible window from the active buffer (keeps scroll pos). */
+function rebuildSpreadsheet() {
+    renderSpreadsheet();
+}
+
+/** Renders from the top (newest) — used on file load and tab switch. */
+function resetSpreadsheet() {
+    spreadsheetBody.scrollTop = 0;
+    renderSpreadsheet();
+}
+
+/** Live: a newest reading arrived; keep the user's place unless at the top. */
+function addSpreadsheetRow() {
+    if (rowHeight && spreadsheetBody.scrollTop >= rowHeight) {
+        // Content grows at the top (newest-first); shift to stay on same rows.
+        spreadsheetBody.scrollTop += rowHeight;
+    }
+    renderSpreadsheet();
+}
+
+// Re-render the window as the user scrolls (throttled to one per frame).
+let scrollRaf = 0;
+spreadsheetBody.addEventListener("scroll", () => {
+    if (scrollRaf) {
+        return;
+    }
+    scrollRaf = requestAnimationFrame(() => {
+        scrollRaf = 0;
+        renderSpreadsheet();
+    });
+});
 
 /**
  * @param {Measurement} m
@@ -770,7 +847,7 @@ function connectSession(session) {
 
 /** Clears the shared view (spreadsheet + plots) for the active source. */
 function clearActiveView() {
-    document.querySelector("#spreadsheet table tbody").innerHTML = "";
+    resetSpreadsheet();
     resetPlots();
     // resetPlots() restores the overlay traces to their hidden default, so
     // re-apply the fade/visibility that matches the current filter setting.
@@ -797,7 +874,7 @@ function renderActive() {
     const ms = session.measurements;
 
     resetPlots();
-    document.querySelector("#spreadsheet table tbody").innerHTML = "";
+    resetSpreadsheet();
 
     if (ms.length > 0) {
         const times = ms.map(m => m.ts);
@@ -815,7 +892,6 @@ function renderActive() {
                 ms.map(m => m.celsius),
             ],
         }, {}, RAW_TRACES);
-        rebuildSpreadsheet();
         updateCurrentTable(ms[ms.length - 1]);
     } else {
         document.getElementById("h").textContent = "-";
@@ -870,7 +946,7 @@ function loadLogFile(file) {
             session.sBucket.length = 0;
 
             resetPlots();
-            document.querySelector("#spreadsheet table tbody").innerHTML = "";
+            resetSpreadsheet();
             const times = logs.map(({ ts }) => ts);
             const vecs = logs.map(rotatedHEZ);
             Plotly.update(plotsDiv, {

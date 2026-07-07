@@ -269,9 +269,17 @@ tbody tr:hover {
     background: #bef;
 }
 
-/* Alternate row color slightly */
-tr:nth-of-type(2n) {
+/* Alternate row color slightly. The spreadsheet body is virtualized (only the
+   visible window is in the DOM), so striping is keyed to a per-row .stripe class
+   set from the stable display index rather than :nth-of-type. */
+.scrolling tr.stripe {
     background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Virtualization spacers reserve off-screen scroll height; never highlight. */
+.scrolling tr.spacer,
+.scrolling tr.spacer:hover {
+    background: none;
 }
 
 #status {
