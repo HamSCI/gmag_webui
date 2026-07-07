@@ -114,6 +114,16 @@ export default class Measurement {
             smoothFn(this[2], prev[2]));
     }
 
+    toJSONL() {
+        const { rfc: ts, celsius: rt, XYZ: [x, y, z] } = this;
+        return `{"ts":"${ts}", "rt":${rt}, "x":${x}, "y":${y}, "z":${z}}`;
+    }
+
+    toCSV() {
+        const { rfc: ts, celsius: rt, XYZ: [x, y, z] } = this;
+        return `"${ts}",${rt},${x},${y},${z}`;
+    }
+
     /**
      * Converts an RFC timestamp to a native Date object.
      * @param {string} ts_str a timestamp string formatted according to
