@@ -103,4 +103,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/index.js` (`plotly_relayout` handler in `attachPlotHandlers`: added `userSlider` detection alongside the existing `userZoom`; `updateLock` guard on the time-window `updateRange()`)
 - **Nature of Contribution**: Code generation (bug fix)
 - **Human Review Status**: Reviewed and verified (headless Chromium against a live fake host: autofollow still tracks live data when on; the range slider's exact event shape disables autofollow with no snap-back; a real mouse-drag run also held the view; range-slider event key confirmed empirically as `xaxis5.range`; zoom and double-click paths unchanged)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 377f42a
