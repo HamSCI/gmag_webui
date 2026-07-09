@@ -68,6 +68,7 @@ function defaultSettings() {
     return {
         displayWindow: "1h",
         dBdt: false,
+        theme: "system",
         filter: { enabled: false, windowSec: 60 },
         sources: [src],
         activeSourceId: src.id,
@@ -88,6 +89,9 @@ function migrateSettings(s) {
     }
     if (!("dBdt" in s)) {
         s.dBdt = false;
+    }
+    if (!("theme" in s)) {
+        s.theme = "system";
     }
     const hasSources = Array.isArray(s.sources) && s.sources.length > 0 &&
         s.sources[0] && s.sources[0].id;
@@ -205,15 +209,67 @@ let updateLock = false;
 // during live updates within a source.
 // Deep-clone: Plotly writes computed axis ranges back into the layout object it
 // is given, so a shared layout would carry one source's ranges into the next.
+// Chart surface colors per theme (issue #16). The saturated series/trace colors
+// are theme-independent and stay in the plot JSON; only the paper/plot
+// backgrounds, gridlines, and font switch.
+function plotTheme() {
+    const dark = document.documentElement.dataset.theme === "dark";
+    return dark
+        ? { paper: "#1e1e1e", plot: "#252525", grid: "#3a3a3a", font: "#e8e8e8" }
+        : { paper: "#ffffff", plot: "#f7f9fb", grid: "#e5e7eb", font: "#1a1a1a" };
+}
+
+// Paint the active theme's colors onto a freshly cloned layout so every newPlot
+// (initial draw, source switch) renders in the current theme.
+function themeLayout(layout) {
+    const t = plotTheme();
+    layout.paper_bgcolor = t.paper;
+    layout.plot_bgcolor = t.plot;
+    layout.font = { ...(layout.font || {}), color: t.font };
+    for (const k of Object.keys(layout)) {
+        if (/^[xy]axis\d*$/.test(k) && layout[k] && typeof layout[k] === "object") {
+            layout[k].gridcolor = t.grid;
+        }
+    }
+    if (layout.legend) {
+        layout.legend.font = { ...(layout.legend.font || {}), color: t.font };
+    }
+    return layout;
+}
+
+// Re-tint both existing plots in place (no trace/range rebuild) on theme toggle.
+function retintPlots() {
+    const t = plotTheme();
+    for (const div of [plotsDiv, sparkDiv]) {
+        if (!div || !div.layout) {
+            continue;
+        }
+        const upd = {
+            paper_bgcolor: t.paper,
+            plot_bgcolor: t.plot,
+            "font.color": t.font,
+        };
+        for (const k of Object.keys(div.layout)) {
+            if (/^[xy]axis\d*$/.test(k)) {
+                upd[k + ".gridcolor"] = t.grid;
+            }
+        }
+        if (div.layout.legend) {
+            upd["legend.font.color"] = t.font;
+        }
+        Plotly.relayout(div, upd);
+    }
+}
+
 function mainLayout() {
     const layout = structuredClone(plotsInit.layout);
     layout.uirevision = settings.activeSourceId;
-    return layout;
+    return themeLayout(layout);
 }
 function sparkLayout() {
     const layout = structuredClone(slInit.layout);
     layout.uirevision = settings.activeSourceId;
-    return layout;
+    return themeLayout(layout);
 }
 
 /**
@@ -1210,6 +1266,42 @@ dBdtToggle.addEventListener("change", ev => {
 })
 
 // ----------------------------------------------------------------------------
+// Theme (issue #16): light/dark, defaulting to the OS preference until the user
+// flips the toggle, after which their explicit choice is remembered.
+// ----------------------------------------------------------------------------
+const ldMode = document.getElementById("ldMode");
+const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
+
+/** Resolves the saved preference ("system"|"light"|"dark") to "dark"|"light". */
+function resolveTheme() {
+    if (settings.theme === "dark" || settings.theme === "light") {
+        return settings.theme;
+    }
+    return darkMq.matches ? "dark" : "light";
+}
+
+/** Applies the resolved theme to the document, the toggle, and the charts. */
+function applyTheme() {
+    const theme = resolveTheme();
+    document.documentElement.dataset.theme = theme;
+    ldMode.checked = theme === "dark";
+    retintPlots();
+}
+
+ldMode.addEventListener("change", () => {
+    settings.theme = ldMode.checked ? "dark" : "light";
+    saveSettings();
+    applyTheme();
+});
+
+// While still following the OS (no explicit choice yet), track live OS changes.
+darkMq.addEventListener("change", () => {
+    if (settings.theme === "system") {
+        applyTheme();
+    }
+});
+
+// ----------------------------------------------------------------------------
 // Connection panel
 // ----------------------------------------------------------------------------
 const srcName = document.getElementById("srcName");
@@ -1529,6 +1621,7 @@ loadDeltaB(activeSource());
 refreshFilter();
 renderTabs();
 updatedBdt();
+applyTheme();
 for (const src of settings.sources) {
     connectSession(sessions.get(src.id));
 }
@@ -1557,6 +1650,7 @@ for (const src of settings.sources) {
  * @typedef {object} DashSettings
  * @prop {string} displayWindow
  * @prop {boolean} dBdt
+ * @prop {"system"|"light"|"dark"} theme
  * @prop {{enabled: boolean, windowSec: number}} filter
  * @prop {Source[]} sources
  * @prop {string} activeSourceId

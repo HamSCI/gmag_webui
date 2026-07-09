@@ -1,5 +1,11 @@
-/* Variables */
+/* Variables
+   Theme-agnostic tokens (status/series/button colors) live here unconditionally.
+   Themeable surface/text tokens default to the DARK palette on :root (a safe
+   no-JS fallback) and are overridden under :root[data-theme="light"]. js/index.js
+   sets data-theme on <html> from the saved preference or prefers-color-scheme, so
+   one of the two palettes is always in effect. */
 :root {
+    /* Constant across themes */
     --col-success: #00c900;
     --col-danger: #ff3b14;
     --col-warning: #ffe100;
@@ -8,14 +14,84 @@
     --col-btn-hover: #69dcff;
     --col-btn-disabled: rgba(0, 125, 166, 0.9);
     --col-tab-active: #424242;
-    --hbar-grad: linear-gradient(#000000, #606060, #000000);
     --right-side-radius: 8px;
+
+    /* Themeable — DARK palette (default / fallback) */
+    --bg: #1e1e1e;
+    --fg: #f0f0f0;
+    --muted: #cfcfcf;
+    --link: #69daff;
+    /* Header/footer chrome */
+    --hbar-grad: linear-gradient(#000000, #606060, #000000);
+    --chrome-fg: #ffffff;
+    --chrome-fg-dim: #cfcfcf;
+    --chrome-soft: rgba(255, 255, 255, 0.08);
+    --chrome-hover: rgba(255, 255, 255, 0.16);
+    /* Content-box + table surfaces */
+    --surface-header-bg: #333333;
+    --surface-header-fg: #ffffff;
+    --surface-hover: #444444;
+    --border: rgba(255, 255, 255, 0.12);
+    --row-hover: #2f4a63;
+    --row-stripe: rgba(255, 255, 255, 0.05);
+    /* Form inputs */
+    --input-bg: #3a3a3a;
+    --input-fg: #f0f0f0;
+    --input-border: rgba(255, 255, 255, 0.14);
+    /* Secondary buttons */
+    --btn-secondary-bg: #515151;
+    --btn-secondary-hover: #5e5e5e;
+    --btn-secondary-fg: #ffffff;
     /* Config panel (instrument-panel surface) */
     --panel-bg: #2b2b2b;
     --panel-header-bg: #383838;
     --panel-text: #f0f0f0;
     --panel-muted: #9a9a9a;
     --panel-border: rgba(255, 255, 255, 0.08);
+}
+
+/* Themeable — LIGHT palette */
+:root[data-theme="light"] {
+    --bg: #f0f2f5;
+    --fg: #1a1a1a;
+    --muted: #5a5f66;
+    --link: #0a6ebd;
+    /* Dark brushed silver (gunmetal): light steel highlights over a graphite
+       body with a specular seam at the midline. Kept dark so the light chrome
+       text and the colored connection-status indicator (green/red/yellow) stay
+       readable. Shared by the header, footer, and content-box bars. */
+    --hbar-grad: linear-gradient(180deg,
+        #8b939c 0%,
+        #656d75 16%,
+        #454b52 45%,
+        #383e45 50%,
+        #4e555d 53%,
+        #6b727a 82%,
+        #4a5058 100%);
+    --chrome-fg: #f4f6f8;
+    --chrome-fg-dim: #c3c9d0;
+    --chrome-soft: rgba(255, 255, 255, 0.08);
+    --chrome-hover: rgba(255, 255, 255, 0.16);
+    /* Table/column headers use a solid gunmetal that echoes the chrome
+       gradient's tone (a light-theme gradient can't be used behind them, and a
+       light fill would wash out the bright inline series-color labels — Temp
+       #ff0, dB/dt #9af8ff, E green). --surface-header-fg stays white. */
+    --surface-header-bg: #474e56;
+    --surface-hover: #d5dbe2;
+    --border: rgba(0, 0, 0, 0.12);
+    --row-hover: #d6ebff;
+    --row-stripe: rgba(0, 0, 0, 0.05);
+    --input-bg: #eef1f5;
+    --input-fg: #1a1a1a;
+    --input-border: #b7c0ca;
+    --btn-secondary-bg: #d5dbe2;
+    --btn-secondary-hover: #c4ccd5;
+    --btn-secondary-fg: #1a1a1a;
+    --panel-bg: #ffffff;
+    --panel-header-bg: #e4e9ef;
+    --panel-text: #1a1a1a;
+    --panel-muted: #5a5f66;
+    --panel-border: rgba(0, 0, 0, 0.10);
 }
 
 * {
@@ -30,6 +106,8 @@ body {
     height: 100vh;
     overflow: hidden;
     font-family: Arial, Helvetica, sans-serif;
+    background-color: var(--bg);
+    color: var(--fg);
 }
 
 header {
@@ -41,7 +119,7 @@ header > div {
     flex-direction: row;
     background: var(--hbar-grad);
     padding: 0px 12px;
-    color: #fff;
+    color: var(--chrome-fg);
     align-items: center;
     height: 45px;
 }
@@ -67,7 +145,7 @@ main {
 }
 
 a {
-    color: #69daff;
+    color: var(--link);
 }
 
 input[type="button"], button {
@@ -103,11 +181,14 @@ footer {
     text-align: center;
     background: var(--hbar-grad);
     vertical-align: bottom;
-    color: #fff;
+    color: var(--chrome-fg);
     padding-top: 7px;
     padding-bottom: 7px;
     display: grid;
     grid-template-columns: 1fr 60px;
+    /* Vertically center both columns (copyright text + theme toggle) in the row
+       so the toggle stays centered regardless of the row's height. */
+    align-items: center;
 }
 
 .layout {
@@ -222,7 +303,7 @@ table {
        overflow-y: hidden keeps the header itself unscrollable / gutter-only. */
     overflow-y: hidden;
     scrollbar-gutter: stable;
-    background-color: #333;
+    background-color: var(--surface-header-bg);
 }
 
 .scrolling {
@@ -255,8 +336,8 @@ table {
 }
 
 thead th {
-    background-color: #333;
-    color: #fff;
+    background-color: var(--surface-header-bg);
+    color: var(--surface-header-fg);
     padding: 6px;
 }
 
@@ -266,14 +347,14 @@ td {
 }
 
 tbody tr:hover {
-    background: #bef;
+    background: var(--row-hover);
 }
 
 /* Alternate row color slightly. The spreadsheet body is virtualized (only the
    visible window is in the DOM), so striping is keyed to a per-row .stripe class
    set from the stable display index rather than :nth-of-type. */
 .scrolling tr.stripe {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--row-stripe);
 }
 
 /* Virtualization spacers reserve off-screen scroll height; never highlight. */
@@ -314,8 +395,8 @@ tbody tr:hover {
     display: flex;
     flex-direction: row;
     background-image: var(--hbar-grad);
-    background-color: #333;
-    color: #fff;
+    background-color: var(--surface-header-bg);
+    color: var(--chrome-fg);
     padding: 6px;
     border-radius: var(--right-side-radius);
 }
@@ -341,7 +422,7 @@ tbody tr:hover {
     align-items: center;
     gap: 8px;
     background-color: var(--panel-header-bg);
-    color: #fff;
+    color: var(--panel-text);
     border: 0;
     border-radius: 0;
     padding: 11px 12px;
@@ -353,7 +434,7 @@ tbody tr:hover {
     transition: background 0.15s ease;
 }
 .panel-header:hover {
-    background-color: #444;
+    background-color: var(--surface-hover);
 }
 .panel-header .title {
     flex-grow: 1;
@@ -400,12 +481,12 @@ tbody tr:hover {
 .field input[type="number"],
 .field select {
     width: 100%;
-    border: 1px solid transparent;
+    border: 1px solid var(--input-border);
     border-radius: 6px;
     padding: 7px 9px;
     font-size: 13px;
-    background-color: #fff;
-    color: #1a1a1a;
+    background-color: var(--input-bg);
+    color: var(--input-fg);
 }
 .field input.mono {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -455,7 +536,7 @@ tbody tr:hover {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #cfcfcf;
+    color: var(--panel-muted);
 }
 
 .note {
@@ -496,11 +577,11 @@ tbody tr:hover {
     background-color: var(--col-btn-hover);
 }
 .btn-secondary {
-    background-color: #515151;
-    color: #fff;
+    background-color: var(--btn-secondary-bg);
+    color: var(--btn-secondary-fg);
 }
 .btn-secondary:hover {
-    background-color: #5e5e5e;
+    background-color: var(--btn-secondary-hover);
 }
 
 /* Segmented control (source type, moving-average toggle) */
@@ -581,18 +662,18 @@ tbody tr:hover {
     flex: 0 0 auto;
     padding: 5px 9px;
     border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.08);
-    color: #cfcfcf;
+    background-color: var(--chrome-soft);
+    color: var(--chrome-fg-dim);
     font-size: 12px;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
 }
 .tab:hover {
-    background-color: rgba(255, 255, 255, 0.16);
+    background-color: var(--chrome-hover);
 }
 .tab.active {
     background-color: var(--panel-bg);
-    color: #fff;
+    color: var(--panel-text);
 }
 
 .tab-name {
@@ -617,13 +698,13 @@ tbody tr:hover {
 .tab-close {
     flex: 0 0 auto;
     font-size: 11px;
-    color: #aaa;
+    color: var(--chrome-fg-dim);
     border-radius: 3px;
     padding: 1px 3px;
 }
 .tab-close:hover {
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--chrome-fg);
+    background-color: var(--chrome-hover);
 }
 
 #addTab {
@@ -633,12 +714,12 @@ tbody tr:hover {
     height: 28px;
     border: 0;
     border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #fff;
+    background-color: var(--chrome-soft);
+    color: var(--chrome-fg);
     cursor: pointer;
 }
 #addTab:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: var(--chrome-hover);
 }
 #addTab:disabled {
     opacity: 0.4;
@@ -749,6 +830,7 @@ tbody tr:hover {
 
 #ldWrapper {
     display: flex;
+    align-items: center;
     margin-right: 7px;
 }
 

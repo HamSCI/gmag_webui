@@ -86,7 +86,6 @@
             "pattern": "independent",
             "roworder": "top to bottom"
         },
-        "height": 160,
         "showlegend": false,
         "xaxis": {
             "type": "date",

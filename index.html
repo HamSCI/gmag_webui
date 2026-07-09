@@ -8,6 +8,21 @@
         <link href="vendor/fontawesome-free-7.1.0-web/css/solid.css" rel="stylesheet" />
         <script src="vendor/plotly-3.3.0.min.js"></script>
         <script src="vendor/mqtt.min.js"></script>
+        <!-- Set the theme before first paint to avoid a light/dark flash. Reads
+             the saved preference ("system" | "light" | "dark"); js/index.js is
+             the source of truth thereafter. -->
+        <script>
+            (function () {
+                var theme = "system";
+                try {
+                    var s = JSON.parse(localStorage.getItem("settings"));
+                    if (s && s.theme) theme = s.theme;
+                } catch (e) { /* ignore malformed settings */ }
+                var dark = theme === "dark" || (theme === "system" &&
+                    window.matchMedia("(prefers-color-scheme: dark)").matches);
+                document.documentElement.dataset.theme = dark ? "dark" : "light";
+            })();
+        </script>
         <!--Local Stylesheets-->
         <link href="css/index.css" rel="stylesheet" />
     </head>
