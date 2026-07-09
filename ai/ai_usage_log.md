@@ -96,3 +96,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (feature)
 - **Human Review Status**: Reviewed and verified (OS-default resolution for dark/light, toggle flips + persists, explicit choice overrides OS on reload, charts/spreadsheet/chrome re-theme with 86,400-row data loaded with no trace/range loss, yellow "Failed" status readable on gunmetal chrome, sparklines fill container — all verified via headless Chromium with screenshots; author confirmed the visual result)
 - **Git Hash**: e7a35e8
+
+## [2026-07-08 21:27 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Fix the time-series panning so autofollow disengages when the user drags the Plotly range slider. Previously the plot's `plotly_relayout` handler only detected drag/zoom inside the plot body (`xaxis.range[0]`/`[1]`), so a range-slider drag (which emits `xaxis5.range`, the slider's bottom axis) left autofollow on and the view snapped back to the trailing window on the next reading. Broadened the handler to also treat a slider drag as a user pan, distinguishing it from the app's own `updateRange()` (which sets every axis, so its asynchronously-delivered event includes `xaxis.range`) to avoid self-disabling autofollow during live updates; also wrapped the one remaining unguarded `updateRange()` (time-window change) in `updateLock`.
+- **Sections/Files Affected**: `js/index.js` (`plotly_relayout` handler in `attachPlotHandlers`: added `userSlider` detection alongside the existing `userZoom`; `updateLock` guard on the time-window `updateRange()`)
+- **Nature of Contribution**: Code generation (bug fix)
+- **Human Review Status**: Reviewed and verified (headless Chromium against a live fake host: autofollow still tracks live data when on; the range slider's exact event shape disables autofollow with no snap-back; a real mouse-drag run also held the view; range-slider event key confirmed empirically as `xaxis5.range`; zoom and double-click paths unchanged)
+- **Git Hash**: [fill in after committing]

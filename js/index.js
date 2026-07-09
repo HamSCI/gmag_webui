@@ -282,9 +282,21 @@ function attachPlotHandlers() {
         plotsDiv.removeAllListeners("plotly_doubleclick");
     }
     plotsDiv.on("plotly_relayout", ev => {
-        if (!updateLock &&
-            "xaxis.range[0]" in ev &&
-            "xaxis.range[1]" in ev) {
+        // A user-driven change to the x range turns off autofollow so the view
+        // stays put instead of snapping back to the trailing window on the next
+        // reading. Two user gestures, two event shapes:
+        //   - drag/zoom inside the plot  -> xaxis.range[0] / xaxis.range[1]
+        //   - drag the range slider      -> xaxis5.range (the slider axis only)
+        // Our own updateRange() sets every axis at once, so its (asynchronously
+        // delivered) event always includes xaxis.range as an array; the presence
+        // of xaxis.range marks a programmatic update we must ignore, which also
+        // makes this robust to updateLock having already been released.
+        if (updateLock) {
+            return;
+        }
+        const userZoom = "xaxis.range[0]" in ev || "xaxis.range[1]" in ev;
+        const userSlider = "xaxis5.range" in ev && !("xaxis.range" in ev);
+        if (userZoom || userSlider) {
             autofollow = false;
         }
     });
@@ -1236,7 +1248,9 @@ timeSelect.addEventListener("change", ev => {
     settings.displayWindow = ev.target.value;
     saveSettings();
     autofollow = true;
+    updateLock = true;
     updateRange();
+    updateLock = false;
 });
 
 // ----------------------------------------------------------------------------
