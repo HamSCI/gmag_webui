@@ -111,4 +111,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/tests.js` (new tests for rotation/export/buffers/parsing/sliding-window), `deno.json` (`test` task), `js/index.d.ts` (`onReading` typed signature), `ts/main.ts` (removed unused `async`), `.github/workflows/ci.yml` (new CI: lint + test), `js/filter_test.js` (removed — superseded)
 - **Nature of Contribution**: Code generation (tests + CI) and minor type/lint fixes
 - **Human Review Status**: Reviewed and verified (all 28 tests pass via `deno task test`; `deno lint js/ ts/` clean across 9 files; `deno check ts/main.ts` clean; CI steps mirror the local commands)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 35c97c2
