@@ -51,7 +51,7 @@ export function buildSparklineTraces(sparklines) {
         {
             type: "scattergl",
             mode: "lines",
-            marker: { color: "#00f" },
+            marker: { color: "#0af" },
             line: { width: 1.5 },
             x: times,
             y: sparklines.map(m => m.HEZ[2]),
@@ -62,7 +62,7 @@ export function buildSparklineTraces(sparklines) {
             type: "scattergl",
             mode: "markers",
             marker: {
-                color: "#00f",
+                color: "#0af",
                 size: 6
             },
             x: [last.ts],

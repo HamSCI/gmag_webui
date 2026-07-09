@@ -32,7 +32,7 @@
             "type": "scattergl",
             "mode": "lines",
             "marker": {
-                "color": "#00f"
+                "color": "#0af"
             },
             "x": [],
             "y": [],
