@@ -95,4 +95,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `css/index.css` (semantic token pairs + dark/light palettes; tokenized chrome/surfaces/inputs/tabs; gunmetal light chrome + solid gunmetal table header; centered footer toggle), `index.html` (anti-flash inline theme script), `js/index.js` (settings.theme default + migration; resolveTheme/applyTheme; toggle + matchMedia wiring; plotTheme/themeLayout/retintPlots and layout injection), `js/data/sparklines.json` (removed fixed height so sparklines autosize)
 - **Nature of Contribution**: Code generation (feature)
 - **Human Review Status**: Reviewed and verified (OS-default resolution for dark/light, toggle flips + persists, explicit choice overrides OS on reload, charts/spreadsheet/chrome re-theme with 86,400-row data loaded with no trace/range loss, yellow "Failed" status readable on gunmetal chrome, sparklines fill container — all verified via headless Chromium with screenshots; author confirmed the visual result)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: e7a35e8
