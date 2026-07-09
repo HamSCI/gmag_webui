@@ -31,7 +31,7 @@ if (import.meta.main) {
     const port = typeof portRaw !== "undefined"
         ? parseInt(portRaw)
         : 8000;
-    Deno.serve({ port, hostname }, async (req: Request) => {
+    Deno.serve({ port, hostname }, (req: Request) => {
         const url = new URL(req.url);
         const { pathname } = url;
 

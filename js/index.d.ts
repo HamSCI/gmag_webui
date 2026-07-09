@@ -4,7 +4,7 @@ interface Global {
     mqtt: typeof import("mqtt");
     MagConnection: {
         create: (config: ConnectionConfig, handlers: {
-            onReading?: Function;
+            onReading?: (json: MagUsbJson) => void;
             onStatus?: (code: number, retry: number) => void;
         }) => {
             connect: () => void;
