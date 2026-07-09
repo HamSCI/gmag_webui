@@ -75,7 +75,7 @@
         }
 
         function connectMqtt(cfg) {
-            if (typeof window.mqtt === "undefined") {
+            if (typeof mqtt === "undefined") {
                 console.error("MQTT.js failed to load.");
                 onStatus(2);
                 return;
@@ -93,7 +93,7 @@
             // Set once the broker rejects credentials, so reconnect churn does
             // not overwrite the clearer "Auth failed" status.
             let authFailed = false;
-            mqttClient = window.mqtt.connect(broker, opts);
+            mqttClient = mqtt.connect(broker, opts);
 
             mqttClient.on("connect", () => {
                 onStatus(1);
@@ -103,7 +103,7 @@
                     }
                 });
             });
-            mqttClient.on("message", (t, payload) => {
+            mqttClient.on("message", (_t, payload) => {
                 try {
                     onReading(JSON.parse(payload.toString()));
                 } catch (e) {
@@ -162,5 +162,5 @@
         return { connect, disconnect };
     }
 
-    window.MagConnection = { create: createConnection };
+    globalThis.MagConnection = { create: createConnection };
 })();

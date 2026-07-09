@@ -4,7 +4,7 @@ import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
 import { trailingAverageAt, slidingWindowMeans } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
-import Vector from "./Vector.js";
+/** @typedef {import("./Vector.js").default} Vector */
 
 const timeRanges = {
     "1m": 60,
@@ -38,8 +38,8 @@ const RAW_FADED_OPACITY = 0.25;
  * @returns {string} a unique id (falls back when crypto is unavailable)
  */
 function uid() {
-    if (window.crypto && window.crypto.randomUUID) {
-        return window.crypto.randomUUID();
+    if (crypto && crypto.randomUUID) {
+        return crypto.randomUUID();
     }
     return "s-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -125,8 +125,8 @@ function migrateSettings(s) {
 /** @type {DashSettings} */
 let settings;
 try {
-    settings = JSON.parse(window.localStorage.getItem("settings"));
-} catch (e) {
+    settings = JSON.parse(localStorage.getItem("settings"));
+} catch (_) {
     settings = null;
 }
 if (!settings) {
@@ -135,7 +135,7 @@ if (!settings) {
 migrateSettings(settings);
 
 function saveSettings() {
-    window.localStorage.setItem("settings", JSON.stringify(settings));
+    localStorage.setItem("settings", JSON.stringify(settings));
 }
 saveSettings(); // persist the normalized shape
 
@@ -452,8 +452,6 @@ function updateRange() {
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
     const latestDiff = new Date(latest.getTime() - (seconds * 1000));
     try {
-        // This keeps throwing a TypeError but it doesn't seem to affect
-        // execution.
         Plotly.relayout(plotsDiv, {
             "xaxis.range":  [latestDiff, latest],
             "xaxis2.range": [latestDiff, latest],
@@ -461,7 +459,10 @@ function updateRange() {
             "xaxis4.range": [latestDiff, latest],
             "xaxis5.range": [latestDiff, latest],
         });
-    } catch (e) {}
+    } catch (_) {
+        // This keeps throwing a TypeError but it doesn't seem to affect
+        // execution. Empty intentionally.
+    }
 }
 
 /**
@@ -908,7 +909,7 @@ function connectSession(session) {
     if (session.connection) {
         session.connection.disconnect();
     }
-    session.connection = window.MagConnection.create(
+    session.connection = MagConnection.create(
         src, connectionHandlers(session.id));
     session.connection.connect();
 }
@@ -1049,7 +1050,7 @@ function exportFile(filename, text, mime) {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
 }
-document.getElementById("jsonl").addEventListener("click", ev => {
+document.getElementById("jsonl").addEventListener("click", _ => {
     const { name } = activeSource();
     const { measurements } = activeSession();
     const ts = measurements[measurements.length - 1].ts.toISOString();
@@ -1057,7 +1058,7 @@ document.getElementById("jsonl").addEventListener("click", ev => {
     const buffer = jsonls.join("\n");
     exportFile(`${name}_${ts}.log`, buffer, "text/plain");
 });
-document.getElementById("csv").addEventListener("click", ev => {
+document.getElementById("csv").addEventListener("click", _ => {
     const { name } = activeSource();
     const { measurements } = activeSession();
     const ts = measurements[measurements.length - 1].ts.toISOString();
@@ -1284,7 +1285,7 @@ dBdtToggle.addEventListener("change", ev => {
 // flips the toggle, after which their explicit choice is remembered.
 // ----------------------------------------------------------------------------
 const ldMode = document.getElementById("ldMode");
-const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
+const darkMq = matchMedia("(prefers-color-scheme: dark)");
 
 /** Resolves the saved preference ("system"|"light"|"dark") to "dark"|"light". */
 function resolveTheme() {
