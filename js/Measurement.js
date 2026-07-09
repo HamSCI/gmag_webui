@@ -116,12 +116,12 @@ export default class Measurement {
 
     toJSONL() {
         const { rfc: ts, celsius: rt, XYZ: [x, y, z] } = this;
-        return `{"ts":"${ts}", "rt":${rt}, "x":${x}, "y":${y}, "z":${z}}`;
+        return `{"ts":"${ts}", "rt":${rt.toFixed(2)}, "x":${x.toFixed(3)}, "y":${y.toFixed(3)}, "z":${z.toFixed(3)}}`;
     }
 
     toCSV() {
         const { rfc: ts, celsius: rt, XYZ: [x, y, z] } = this;
-        return `"${ts}",${rt},${x},${y},${z}`;
+        return `"${ts}",${rt.toFixed(2)},${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
     }
 
     /**
