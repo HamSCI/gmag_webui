@@ -15,14 +15,14 @@
             { "text": "Z", "xref": "x3 domain", "x": 0.02, "yref": "y3 domain", "y": 0.96, "xanchor": "left", "yanchor": "top", "showarrow": false, "font": { "size": 11 } },
             { "text": "Mag", "xref": "x4 domain", "x": 0.02, "yref": "y4 domain", "y": 0.96, "xanchor": "left", "yanchor": "top", "showarrow": false, "font": { "size": 11 } }
         ],
-        "xaxis":  { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y",  "domain": [0.0, 0.49] },
-        "xaxis2": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y2", "matches": "x", "domain": [0.51, 1.0] },
-        "xaxis3": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y3", "matches": "x", "domain": [0.0, 0.49] },
-        "xaxis4": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y4", "matches": "x", "domain": [0.51, 1.0] },
-        "yaxis":  { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x",  "domain": [0.53, 1.0] },
-        "yaxis2": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x2", "domain": [0.53, 1.0] },
-        "yaxis3": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x3", "domain": [0.0, 0.47] },
-        "yaxis4": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x4", "domain": [0.0, 0.47] }
+        "xaxis":  { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y",  "domain": [0.0, 0.5] },
+        "xaxis2": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y2", "matches": "x", "domain": [0.5, 1.0] },
+        "xaxis3": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y3", "matches": "x", "domain": [0.0, 0.5] },
+        "xaxis4": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y4", "matches": "x", "domain": [0.5, 1.0] },
+        "yaxis":  { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x",  "domain": [0.5, 1.0] },
+        "yaxis2": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x2", "domain": [0.5, 1.0] },
+        "yaxis3": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x3", "domain": [0.0, 0.5] },
+        "yaxis4": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x4", "domain": [0.0, 0.5] }
     },
     "config": {
         "responsive": true,
