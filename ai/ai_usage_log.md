@@ -119,4 +119,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/sparklines.js` (`buildSparklineTraces(sparklines, toDisplay)` + `row()` helper, empty-guard), `js/index.js` (new `displayHEZ`; `updateSparks` passes it; new `refreshSparks` wired into rotation/delta-B handlers; `displayHEZ` reused in `extendAllTraces`/`updateCurrentTable`/`spreadsheetRowHTML`)
 - **Nature of Contribution**: Code generation (bug fix + refactor)
 - **Human Review Status**: Reviewed and verified (`deno lint` clean; 28 tests pass; headless check: a 90° Z-rotation transforms the sparkline rows correctly — H→−E, E→H — and the sparkline H matches the main-plot H, with no page errors)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 8531f7e
