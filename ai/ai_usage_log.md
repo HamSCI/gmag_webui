@@ -143,4 +143,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `index.html` (viewport + charset meta), `css/index.css` (responsive section: `≤1100px` spreadsheet font; `≤900px` portrait flex-column stack, 2-column data band with Spreadsheet spanning, 2-column Current Reading, header-alignment fix, fixed sidebar overlay)
 - **Nature of Contribution**: Code generation (responsive layout)
 - **Human Review Status**: Reviewed and verified (headless Chromium at iPad landscape 1024×768 and portrait 768×1024 with touch: no JS/console errors; portrait fits with no scroll and Z/Mag sparklines visible; spreadsheet no longer overflows/cramps even with dB/dt; tap opens sidebar / selects source type / adds tab; `deno lint` clean and 28 tests pass; author verified across major browsers and the tablet layout iterations)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: b215225
