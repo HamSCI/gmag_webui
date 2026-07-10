@@ -135,4 +135,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/data/plots.json` (all traces on shared `x`; single bottom x-axis with rangeslider + ticks; removed the extra x-axes and the now-unneeded grid; `hoversubplots: "axis"`), `js/index.js` (`updateRange` single `xaxis.range` with async-safe `updateLock`; simplified `plotly_relayout`/`plotly_doubleclick` handlers; removed manual lock wrapping at the live/render/time-window call sites)
 - **Nature of Contribution**: Code generation (bug fix)
 - **Human Review Status**: Reviewed and verified (headless: unified hover shows all five values at the timestamp; gridlines present in every row; autofollow follows live data; a real rangeslider drag emits `xaxis.range` and disables autofollow with no snap-back; `deno lint` clean, 28 tests pass)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 60df33b
