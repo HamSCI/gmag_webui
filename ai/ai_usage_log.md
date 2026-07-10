@@ -127,4 +127,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/sparklines.js` (`buildSparklineTraces` min/max band + average + marker, H/E/Z/Mag rows, band encloses the average), `js/index.js` (`ingest` stores `{avg, lo, hi}`, imports `minMaxOfBucket`), `js/data/sparklines.json` (2×2 grid, SVG scatter, per-row labels, hidden y-ticks, tightened gaps), `js/index.d.ts` (`SparkAgg` typedef), `css/index.css` (Trends slice 15%, reordered below Current Reading), `index.html` (moved the Trends block above the Spreadsheet)
 - **Nature of Contribution**: Code generation (feature + layout)
 - **Human Review Status**: Reviewed and verified (`deno lint` clean across 9 files; 28 tests pass; headless demo confirmed the 2×2 band/labels render with no y-ticks and no page errors; author verified the layout manually)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 5b35531
