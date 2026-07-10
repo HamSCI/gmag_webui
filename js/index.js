@@ -362,6 +362,18 @@ function usesDeltaB() {
     return h !== 0 || e !== 0 || z !== 0;
 }
 
+/**
+ * The display-space HEZ vector for a measurement: the active source's rotation,
+ * plus the delta-B baseline when one is set. Both the main plot and the Trends
+ * sparklines render this, so the two stay consistent.
+ * @param {Measurement} m
+ * @returns {Vector} the display HEZ vector
+ */
+function displayHEZ(m) {
+    const v = rotatedHEZ(m);
+    return usesDeltaB() ? applyDeltaB(v) : v;
+}
+
 /** Resets both plots to their initial empty state (full re-init). */
 function resetPlots() {
     drawMainPlot(structuredClone(plotsInit.traces));
@@ -470,10 +482,7 @@ function updateRange() {
  * @param {Measurement} measurement
  */
 function extendAllTraces(measurement) {
-    let dispVec = rotatedHEZ(measurement);
-    if (usesDeltaB()) {
-        dispVec = applyDeltaB(dispVec);
-    }
+    const dispVec = displayHEZ(measurement);
     const { ts } = measurement;
     Plotly.extendTraces(plotsDiv, {
         x: [[ts], [ts], [ts], [ts], [ts]],
@@ -526,8 +535,15 @@ function updateSparks() {
     while (session.sparklines.length > SPARK_BUF_MAX) {
         session.sparklines.shift();
     }
-    const newSlTraces = buildSparklineTraces(session.sparklines);
+    const newSlTraces = buildSparklineTraces(session.sparklines, displayHEZ);
     Plotly.react(sparkDiv, newSlTraces, sparkLayout(), slInit.config);
+}
+
+/** Rebuilds the active sparklines after a transform change (rotation/delta-B). */
+function refreshSparks() {
+    if (activeSession().sparklines.length > 0) {
+        updateSparks();
+    }
 }
 
 /**
@@ -584,10 +600,7 @@ const DATE_FMT = new Intl.DateTimeFormat("en-US", {
  */
 function spreadsheetRowHTML(measurement, prev, d) {
     const date = DATE_FMT.format(measurement.ts);
-    let v = rotatedHEZ(measurement);
-    if (usesDeltaB()) {
-        v = applyDeltaB(v);
-    }
+    const v = displayHEZ(measurement);
     const dBdt = prev ? formatSigned(dBdtValue(measurement, prev)) : "–";
     const stripe = d % 2 ? ' class="stripe"' : "";
     return `
@@ -696,10 +709,7 @@ spreadsheetBody.addEventListener("scroll", () => {
  */
 function updateCurrentTable(m) {
     const { measurements: ms } = activeSession();
-    let dispVec = rotatedHEZ(m);
-    if (usesDeltaB()) {
-        dispVec = applyDeltaB(dispVec);
-    }
+    const dispVec = displayHEZ(m);
     const dBdt = ms.length > 1
         ? formatSigned(dBdtValue(m, ms[ms.length - 2]))
         : "±0.000";
@@ -1118,6 +1128,7 @@ document.getElementById("saveRot").addEventListener("click", () => {
     updateCoordGraphs();
     rebuildSpreadsheet();
     refreshCurrentReading();
+    refreshSparks();
 });
 
 // ----------------------------------------------------------------------------
@@ -1175,6 +1186,7 @@ document.getElementById("savedB").addEventListener("click", () => {
     updateCoordGraphs();
     rebuildSpreadsheet();
     refreshCurrentReading();
+    refreshSparks();
 });
 
 // Reset delta-B back to zero (absolute view).
@@ -1189,6 +1201,7 @@ document.getElementById("resetdB").addEventListener("click", () => {
     updateCoordGraphs();
     rebuildSpreadsheet();
     refreshCurrentReading();
+    refreshSparks();
 });
 
 /**

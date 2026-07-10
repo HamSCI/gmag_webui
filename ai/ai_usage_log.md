@@ -112,3 +112,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (tests + CI) and minor type/lint fixes
 - **Human Review Status**: Reviewed and verified (all 28 tests pass via `deno task test`; `deno lint js/ ts/` clean across 9 files; `deno check ts/main.ts` clean; CI steps mirror the local commands)
 - **Git Hash**: 35c97c2
+
+## [2026-07-09 20:22 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Make the Trends sparklines account for the active source's coordinate rotation (and delta-B), which they previously ignored — they rendered raw HEZ and never refreshed when the transform changed, so they disagreed with the main plot. Introduced a single `displayHEZ(m)` helper (rotation + delta-B baseline) as the shared source of truth for what gets plotted, made `buildSparklineTraces` take that display-mapper so the H/E/Z/magnitude rows mirror the main plot, and added a `refreshSparks()` call to the Save Rotation / Save dB / Reset dB handlers so the sparklines update on any transform change. Also DRY'd `buildSparklineTraces` (5 duplicated line+marker literal pairs → a `row()` helper) and reused `displayHEZ` across the live trace append, current-reading, and spreadsheet-row paths (collapsing four copies of the rotate-then-maybe-deltaB pattern).
+- **Sections/Files Affected**: `js/sparklines.js` (`buildSparklineTraces(sparklines, toDisplay)` + `row()` helper, empty-guard), `js/index.js` (new `displayHEZ`; `updateSparks` passes it; new `refreshSparks` wired into rotation/delta-B handlers; `displayHEZ` reused in `extendAllTraces`/`updateCurrentTable`/`spreadsheetRowHTML`)
+- **Nature of Contribution**: Code generation (bug fix + refactor)
+- **Human Review Status**: Reviewed and verified (`deno lint` clean; 28 tests pass; headless check: a 90° Z-rotation transforms the sparkline rows correctly — H→−E, E→H — and the sparkline H matches the main-plot H, with no page errors)
+- **Git Hash**: [fill in after committing]

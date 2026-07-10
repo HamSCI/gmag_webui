@@ -1,119 +1,57 @@
 import Measurement from "./Measurement.js";
 
-export function buildSparklineTraces(sparklines) {
+/**
+ * Builds the Trends sparkline traces: one line plus a current-value marker for
+ * each row (H, E, Z, magnitude, temperature).
+ *
+ * The H/E/Z/magnitude rows are drawn in display space via `toDisplay`, which
+ * applies the active source's rotation (and delta-B baseline) exactly like the
+ * main plot — so the sparklines mirror what's plotted rather than the raw
+ * sensor axes. Temperature is not a field component, so it is shown as-is.
+ *
+ * @param {Measurement[]} sparklines downsampled measurements, ascending by time
+ * @param {(m: Measurement) => import("./Vector.js").default} toDisplay maps a
+ *   measurement to its display-space HEZ vector
+ */
+export function buildSparklineTraces(sparklines, toDisplay) {
+    if (sparklines.length === 0) {
+        return [];
+    }
     const times = sparklines.map(m => m.ts);
-    const last = sparklines[sparklines.length - 1];
+    const vecs = sparklines.map(toDisplay);
+    const temps = sparklines.map(m => m.celsius);
+    const li = sparklines.length - 1;
+    const lastTs = times[li];
+
+    // One row = a line over the whole series plus a marker on the latest point.
+    const row = (color, ys, xaxis, yaxis) => [
+        {
+            type: "scattergl",
+            mode: "lines",
+            marker: { color },
+            line: { width: 1.5 },
+            x: times,
+            y: ys,
+            xaxis,
+            yaxis,
+        },
+        {
+            type: "scattergl",
+            mode: "markers",
+            marker: { color, size: 6 },
+            x: [lastTs],
+            y: [ys[li]],
+            xaxis,
+            yaxis,
+        },
+    ];
+
     return [
-        {
-            type: "scattergl",
-            mode: "lines",
-            marker: { color: "#f00" },
-            line: { width: 1.5 },
-            x: times,
-            y: sparklines.map(m => m.HEZ[0]),
-            xaxis: "x",
-            yaxis: "y",
-        },
-        {
-            type: "scattergl",
-            mode: "markers",
-            marker: {
-                color: "#f00",
-                size: 6
-            },
-            x: [last.ts],
-            y: [last.HEZ[0]],
-            xaxis: "x",
-            yaxis: "y",
-        },
-        {
-            type: "scattergl",
-            mode: "lines",
-            marker: { color: "#0f0" },
-            line: { width: 1.5 },
-            x: times,
-            y: sparklines.map(m => m.HEZ[1]),
-            xaxis: "x2",
-            yaxis: "y2",
-        },
-        {
-            type: "scattergl",
-            mode: "markers",
-            marker: {
-                color: "#0f0",
-                size: 6
-            },
-            x: [last.ts],
-            y: [last.HEZ[1]],
-            xaxis: "x2",
-            yaxis: "y2",
-        },
-        {
-            type: "scattergl",
-            mode: "lines",
-            marker: { color: "#0af" },
-            line: { width: 1.5 },
-            x: times,
-            y: sparklines.map(m => m.HEZ[2]),
-            xaxis: "x3",
-            yaxis: "y3",
-        },
-        {
-            type: "scattergl",
-            mode: "markers",
-            marker: {
-                color: "#0af",
-                size: 6
-            },
-            x: [last.ts],
-            y: [last.HEZ[2]],
-            xaxis: "x3",
-            yaxis: "y3",
-        },
-        {
-            type: "scattergl",
-            mode: "lines",
-            marker: { color: "#f0f" },
-            line: { width: 1.5 },
-            x: times,
-            y: sparklines.map(m => m.HEZ.magnitude),
-            xaxis: "x4",
-            yaxis: "y4",
-        },
-        {
-            type: "scattergl",
-            mode: "markers",
-            marker: {
-                color: "#f0f",
-                size: 6
-            },
-            x: [last.ts],
-            y: [last.HEZ.magnitude],
-            xaxis: "x4",
-            yaxis: "y4",
-        },
-        {
-            type: "scattergl",
-            mode: "lines",
-            marker: { color: "#ffae00" },
-            line: { width: 1.5 },
-            x: times,
-            y: sparklines.map(m => m.celsius),
-            xaxis: "x5",
-            yaxis: "y5",
-        },
-        {
-            type: "scattergl",
-            mode: "markers",
-            marker: {
-                color: "#ffae00",
-                size: 6
-            },
-            x: [last.ts],
-            y: [last.celsius],
-            xaxis: "x5",
-            yaxis: "y5",
-        },
+        ...row("#f00", vecs.map(v => v[0]), "x", "y"),
+        ...row("#0f0", vecs.map(v => v[1]), "x2", "y2"),
+        ...row("#0af", vecs.map(v => v[2]), "x3", "y3"),
+        ...row("#f0f", vecs.map(v => v.magnitude), "x4", "y4"),
+        ...row("#ffae00", temps, "x5", "y5"),
     ];
 }
 
