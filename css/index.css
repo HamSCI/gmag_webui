@@ -260,6 +260,10 @@ footer {
     flex-shrink: 0;
 }
 
+#trends {
+    margin-bottom: 5px;
+}
+
 #data, #trends {
     padding: 0 5px 5px;
 }
@@ -836,4 +840,93 @@ tbody tr:hover {
 
 #ldWrapper i {
     padding-right: 7px;
+}
+
+/* ----------------------------------------------------------------------------
+   Responsive: tablets / iPad (issue #27)
+   The dashboard is a fixed-viewport, side-by-side layout on desktop, and the
+   plots stay the star of the show. Rather than steal width from them, on tablet
+   widths we shrink the spreadsheet's text so its 6–7 columns stay readable in
+   the 500px data column. Portrait tablets can't fit both side by side, so we
+   stack the plots over the data band.
+   ---------------------------------------------------------------------------- */
+
+/* Tablet widths: smaller spreadsheet text so the value columns (up to 7 with
+   dB/dt) don't run together in the fixed-width data column. */
+@media (max-width: 1100px) {
+    #spreadsheet {
+        font-size: 8.5pt;
+    }
+}
+
+/* Portrait tablets: stack the plots over the data band. Block flow (not grid)
+   lets main and the data band take their natural heights and the whole thing
+   scroll within .layout. Below the plots, the band is a two-column grid:
+   Current Reading and Trends stacked in the left column, with the Spreadsheet
+   beside them spanning both rows (it's the tall, scrollable one). */
+@media (max-width: 900px) {
+    .layout {
+        /* Flex column so main + the data band divide exactly the space between
+           the header and footer — the whole dashboard fits the portrait
+           viewport with no page scroll (vh heights would overflow, since they
+           don't subtract the header/footer). */
+        display: flex;
+        flex-direction: column;
+    }
+    main {
+        flex: 3 1 0;
+        min-height: 0;
+    }
+    .right-column {
+        /* Flex-sized (bounded by .layout), so the spreadsheet (which spans both
+           rows) can't inflate the shared row and push Trends down — it scrolls
+           internally instead. The spreadsheet gets the larger column share since
+           its columns (up to 7 with dB/dt) need the room. */
+        flex: 2 1 0;
+        min-height: 0;
+        grid-template-columns: 0.75fr 1.25fr;
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+    #current-wrapper {
+        grid-column: 1;
+        grid-row: 1;
+    }
+    /* In the narrow left column, lay the readings out in two columns rather than
+       rows of three, so the numbers aren't cramped (and Current Reading takes a
+       fairer share of the column vs. Trends). `display: contents` flattens the
+       row wrappers so all cells flow into one 2-column grid while keeping the
+       per-cell color selectors intact. */
+    #current {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: none;
+    }
+    .row1,
+    .row2 {
+        display: contents;
+    }
+    /* Smaller reading values let the left column stay narrow, freeing width for
+       the spreadsheet. */
+    .cell-value {
+        font-size: 15pt;
+    }
+    #trends {
+        grid-column: 1;
+        grid-row: 2;
+    }
+    #data {
+        /* Spreadsheet sits beside Current Reading + Trends, spanning both rows;
+           its table keeps its own internal scroll. Match Current Reading's top
+           padding (content-box default is overridden to 0 for #data) so the two
+           panel headers line up. */
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        padding-top: 5px;
+    }
+    /* Pin the config sidebar to the viewport, not the now-scrollable band, so
+       it stays in view while the band scrolls underneath it. */
+    #config {
+        position: fixed;
+        top: 45px;
+        bottom: 0;
+    }
 }
