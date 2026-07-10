@@ -128,3 +128,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (feature + layout)
 - **Human Review Status**: Reviewed and verified (`deno lint` clean across 9 files; 28 tests pass; headless demo confirmed the 2×2 band/labels render with no y-ticks and no page errors; author verified the layout manually)
 - **Git Hash**: 5b35531
+
+## [2026-07-09 23:44 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Restore the unified cross-subplot hover on the main plot (hovering shows all five channels — H, E, Z, Magnitude, Temperature — at one timestamp). It had broken because the main plot's five stacked rows were each on a separate matched x-axis, and `layout.hoversubplots` was set to the invalid value `"all"` (silently falling back to `"overlaying"`, which only shows the hovered row); Plotly's `"axis"` mode can only group rows that literally share an x-axis. Fixed by putting all traces on a single shared x-axis with five stacked y-axes (keeping per-row gridlines and the bottom rangeslider) and setting `hoversubplots: "axis"`. Because the rangeslider and the app's own `updateRange()` now both emit `xaxis.range`, reworked `updateRange()` to hold `updateLock` across Plotly's asynchronously-delivered `plotly_relayout` event (cleared in the relayout promise's `.finally`) so autofollow isn't self-disabled, and simplified the autofollow relayout handler (any user `xaxis.range` change disables follow) and its call sites.
+- **Sections/Files Affected**: `js/data/plots.json` (all traces on shared `x`; single bottom x-axis with rangeslider + ticks; removed the extra x-axes and the now-unneeded grid; `hoversubplots: "axis"`), `js/index.js` (`updateRange` single `xaxis.range` with async-safe `updateLock`; simplified `plotly_relayout`/`plotly_doubleclick` handlers; removed manual lock wrapping at the live/render/time-window call sites)
+- **Nature of Contribution**: Code generation (bug fix)
+- **Human Review Status**: Reviewed and verified (headless: unified hover shows all five values at the timestamp; gridlines present in every row; autofollow follows live data; a real rangeslider drag emits `xaxis.range` and disables autofollow with no snap-back; `deno lint` clean, 28 tests pass)
+- **Git Hash**: [fill in after committing]

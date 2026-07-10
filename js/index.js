@@ -284,27 +284,21 @@ function attachPlotHandlers() {
     plotsDiv.on("plotly_relayout", ev => {
         // A user-driven change to the x range turns off autofollow so the view
         // stays put instead of snapping back to the trailing window on the next
-        // reading. Two user gestures, two event shapes:
-        //   - drag/zoom inside the plot  -> xaxis.range[0] / xaxis.range[1]
-        //   - drag the range slider      -> xaxis5.range (the slider axis only)
-        // Our own updateRange() sets every axis at once, so its (asynchronously
-        // delivered) event always includes xaxis.range as an array; the presence
-        // of xaxis.range marks a programmatic update we must ignore, which also
-        // makes this robust to updateLock having already been released.
+        // reading. Zoom/drag inside the plot emits xaxis.range[0]/[1]; dragging
+        // the range slider emits xaxis.range (an array). Our own updateRange()
+        // also emits xaxis.range, but it holds updateLock across the
+        // asynchronously delivered relayout event, so those are skipped here.
         if (updateLock) {
             return;
         }
-        const userZoom = "xaxis.range[0]" in ev || "xaxis.range[1]" in ev;
-        const userSlider = "xaxis5.range" in ev && !("xaxis.range" in ev);
-        if (userZoom || userSlider) {
+        if ("xaxis.range[0]" in ev || "xaxis.range[1]" in ev ||
+            "xaxis.range" in ev) {
             autofollow = false;
         }
     });
     plotsDiv.on("plotly_doubleclick", () => {
         autofollow = true;
-        updateLock = true;
-        updateRange();
-        updateLock = false;
+        updateRange(); // self-locks against the autofollow handler
     });
 }
 
@@ -455,6 +449,10 @@ function updateCoordGraphs() {
     }
 }
 
+// All five rows now share one x-axis, so a single xaxis.range drives them all.
+// Plotly delivers plotly_relayout asynchronously (after this call returns), so
+// we hold updateLock until the relayout settles — otherwise the autofollow
+// handler would mistake our own snap-back for a user pan and disable following.
 function updateRange() {
     const ms = activeSession().measurements;
     if (ms.length === 0) {
@@ -463,18 +461,11 @@ function updateRange() {
     const { ts: latest } = ms[ms.length - 1];
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
     const latestDiff = new Date(latest.getTime() - (seconds * 1000));
-    try {
-        Plotly.relayout(plotsDiv, {
-            "xaxis.range":  [latestDiff, latest],
-            "xaxis2.range": [latestDiff, latest],
-            "xaxis3.range": [latestDiff, latest],
-            "xaxis4.range": [latestDiff, latest],
-            "xaxis5.range": [latestDiff, latest],
-        });
-    } catch (_) {
-        // This keeps throwing a TypeError but it doesn't seem to affect
-        // execution. Empty intentionally.
-    }
+    updateLock = true;
+    Promise.resolve(
+        Plotly.relayout(plotsDiv, { "xaxis.range": [latestDiff, latest] }))
+        .catch(() => {})
+        .finally(() => { updateLock = false; });
 }
 
 /**
@@ -848,9 +839,7 @@ function handleReading(id, json) {
             updateSparks();
         }
         if (autofollow) {
-            updateLock = true;
             updateRange();
-            updateLock = false;
         }
     }
 }
@@ -990,9 +979,7 @@ function renderActive() {
     }
     setHeaderStatus(session.status);
     autofollow = true;
-    updateLock = true;
     updateRange();
-    updateLock = false;
 }
 
 // ----------------------------------------------------------------------------
@@ -1267,9 +1254,7 @@ timeSelect.addEventListener("change", ev => {
     settings.displayWindow = ev.target.value;
     saveSettings();
     autofollow = true;
-    updateLock = true;
     updateRange();
-    updateLock = false;
 });
 
 // ----------------------------------------------------------------------------

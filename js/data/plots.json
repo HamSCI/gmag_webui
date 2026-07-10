@@ -29,7 +29,7 @@
             },
             "hovertemplate": "%{y:.3f}<extra></extra>",
             "name": "E (nT)",
-            "xaxis": "x2",
+            "xaxis": "x",
             "yaxis": "y2"
         },
         {
@@ -45,7 +45,7 @@
             },
             "hovertemplate": "%{y:.3f}<extra></extra>",
             "name": "Z (nT)",
-            "xaxis": "x3",
+            "xaxis": "x",
             "yaxis": "y3"
         },
         {
@@ -61,7 +61,7 @@
             },
             "hovertemplate": "%{y:.3f}<extra></extra>",
             "name": "Magnitude (nT)",
-            "xaxis": "x4",
+            "xaxis": "x",
             "yaxis": "y4"
         },
         {
@@ -77,7 +77,7 @@
             },
             "hovertemplate": "%{y:.3f}<extra></extra>",
             "name": "Temperature (°C)",
-            "xaxis": "x5",
+            "xaxis": "x",
             "yaxis": "y5"
         },
         {
@@ -113,7 +113,7 @@
             "showlegend": false,
             "visible": false,
             "name": "E (filtered)",
-            "xaxis": "x2",
+            "xaxis": "x",
             "yaxis": "y2"
         },
         {
@@ -131,7 +131,7 @@
             "showlegend": false,
             "visible": false,
             "name": "Z (filtered)",
-            "xaxis": "x3",
+            "xaxis": "x",
             "yaxis": "y3"
         },
         {
@@ -149,7 +149,7 @@
             "showlegend": false,
             "visible": false,
             "name": "Magnitude (filtered)",
-            "xaxis": "x4",
+            "xaxis": "x",
             "yaxis": "y4"
         },
         {
@@ -167,7 +167,7 @@
             "showlegend": false,
             "visible": false,
             "name": "Temperature (filtered)",
-            "xaxis": "x5",
+            "xaxis": "x",
             "yaxis": "y5"
         }
     ],
@@ -180,68 +180,11 @@
             "b": 0,
             "pad": 0
         },
-        "grid": {
-            "rows": 5,
-            "columns": 1,
-            "pattern": "independent",
-            "roworder": "top to bottom"
-        },
         "paper_bgcolor": "#fff",
         "plot_bgcolor": "#f7f9fb",
         "hovermode": "x unified",
-        "hoversubplots": "all",
+        "hoversubplots": "axis",
         "xaxis": {
-            "type": "date",
-            "autorange": false,
-            "showgrid": true,
-            "gridcolor": "#e5e7eb",
-            "gridwidth": 1,
-            "zeroline": false,
-            "tickformat": "%H:%M:%S",
-            "nticks": 8,
-            "anchor": "y",
-            "showticklabels": false
-        },
-        "xaxis2": {
-            "type": "date",
-            "autorange": false,
-            "showgrid": true,
-            "gridcolor": "#e5e7eb",
-            "gridwidth": 1,
-            "zeroline": false,
-            "tickformat": "%H:%M:%S",
-            "nticks": 8,
-            "anchor": "y2",
-            "showticklabels": false,
-            "matches": "x"
-        },
-        "xaxis3": {
-            "type": "date",
-            "autorange": false,
-            "showgrid": true,
-            "gridcolor": "#e5e7eb",
-            "gridwidth": 1,
-            "zeroline": false,
-            "tickformat": "%H:%M:%S",
-            "nticks": 8,
-            "anchor": "y3",
-            "showticklabels": false,
-            "matches": "x"
-        },
-        "xaxis4": {
-            "type": "date",
-            "autorange": false,
-            "showgrid": true,
-            "gridcolor": "#e5e7eb",
-            "gridwidth": 1,
-            "zeroline": false,
-            "tickformat": "%H:%M:%S",
-            "nticks": 8,
-            "anchor": "y4",
-            "showticklabels": false,
-            "matches": "x"
-        },
-        "xaxis5": {
             "type": "date",
             "autorange": false,
             "showgrid": true,
@@ -252,7 +195,6 @@
             "nticks": 8,
             "anchor": "y5",
             "showticklabels": true,
-            "matches": "x",
             "side": "bottom",
             "rangeslider": {
                 "visible": true,
