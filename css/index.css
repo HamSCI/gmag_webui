@@ -208,11 +208,11 @@ footer {
 /*TODO: At some point we want to make this resizable.*/
 .right-column {
     display: grid;
-    /* Current Reading sizes to its content (no trailing whitespace), the
-       spreadsheet takes the remaining space and scrolls, and Trends keeps a
-       proportional slice. minmax(0, …) lets the middle row shrink so its
-       table scrolls instead of pushing Trends off-screen. */
-    grid-template-rows: auto minmax(0, 1fr) 25%;
+    /* Current Reading sizes to its content, Trends keeps a proportional slice
+       below it, and the spreadsheet takes the remaining space and scrolls.
+       minmax(0, …) lets the spreadsheet row shrink so its table scrolls instead
+       of pushing content off-screen. */
+    grid-template-rows: auto 15% minmax(0, 1fr);
     min-height: 0;
 }
 

@@ -1,6 +1,6 @@
 /// <reference path="./index.d.ts" />
 import Measurement from "./Measurement.js";
-import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
+import { buildSparklineTraces, minMaxOfBucket, reduceBucket } from "./sparklines.js";
 import { trailingAverageAt, slidingWindowMeans } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
@@ -161,7 +161,7 @@ function activeSource() {
  * @typedef {object} Session
  * @prop {string} id
  * @prop {Measurement[]} measurements
- * @prop {Measurement[]} sparklines
+ * @prop {{avg: Measurement, lo: Measurement, hi: Measurement}[]} sparklines
  * @prop {Measurement[]} sBucket
  * @prop {?object} connection live MagConnection instance, or null
  * @prop {number} status last status code (0-5)
@@ -796,7 +796,12 @@ function ingest(session, m) {
     }
     session.sBucket.push(m);
     if (session.sBucket.length >= SL_BUCKET_MAX) {
-        session.sparklines.push(reduceBucket(session.sBucket));
+        // Keep the bucket average (the line) plus its min/max corner vectors
+        // (the envelope band), so short excursions within a bucket aren't
+        // averaged away in the Trends sparklines.
+        const avg = reduceBucket(session.sBucket);
+        const [lo, hi] = minMaxOfBucket(session.sBucket);
+        session.sparklines.push({ avg, lo, hi });
         session.sBucket.length = 0;
         while (session.sparklines.length > SPARK_BUF_MAX) {
             session.sparklines.shift();

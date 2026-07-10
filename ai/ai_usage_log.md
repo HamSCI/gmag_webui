@@ -120,3 +120,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (bug fix + refactor)
 - **Human Review Status**: Reviewed and verified (`deno lint` clean; 28 tests pass; headless check: a 90° Z-rotation transforms the sparkline rows correctly — H→−E, E→H — and the sparkline H matches the main-plot H, with no page errors)
 - **Git Hash**: 8531f7e
+
+## [2026-07-09 22:24 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8
+- **Session Purpose**: Enhance the Trends sparklines. Wired the previously-unused `minMaxOfBucket` into a translucent min/max envelope band behind each average line (so short excursions aren't averaged away by the bucket mean); the band is drawn in display space through `displayHEZ` so it respects rotation/delta-B, exact for the linear H/E/Z rows and an average-enclosing approximation for the nonlinear magnitude row. Reworked the rows to H/E/Z/Magnitude (dropped temperature; magnitude replaces it), added per-row text labels (accessibility, not color-only), switched the traces from WebGL `scattergl` to lighter SVG `scatter`, hid the y-axis tick numbers, and laid the four panels out as a 2×2 grid with tightened inter-panel gaps. Repositioned the Trends box to sit between Current Reading and the Spreadsheet at 15% of the right column (to set up a later layout change). `ingest` now stores a per-bucket `{avg, lo, hi}` aggregate.
+- **Sections/Files Affected**: `js/sparklines.js` (`buildSparklineTraces` min/max band + average + marker, H/E/Z/Mag rows, band encloses the average), `js/index.js` (`ingest` stores `{avg, lo, hi}`, imports `minMaxOfBucket`), `js/data/sparklines.json` (2×2 grid, SVG scatter, per-row labels, hidden y-ticks, tightened gaps), `js/index.d.ts` (`SparkAgg` typedef), `css/index.css` (Trends slice 15%, reordered below Current Reading), `index.html` (moved the Trends block above the Spreadsheet)
+- **Nature of Contribution**: Code generation (feature + layout)
+- **Human Review Status**: Reviewed and verified (`deno lint` clean across 9 files; 28 tests pass; headless demo confirmed the 2×2 band/labels render with no y-ticks and no page errors; author verified the layout manually)
+- **Git Hash**: [fill in after committing]

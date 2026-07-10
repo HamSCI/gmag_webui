@@ -73,9 +73,15 @@ declare interface DashSettings {
     activeSourceId: string;
 }
 
+declare interface SparkAgg {
+    avg: Measurement;
+    lo: Measurement;
+    hi: Measurement;
+}
+
 declare interface Session {
     id: string;
     measurements: Measurement[];
-    sparklines: Measurement[];
+    sparklines: SparkAgg[];
     sBucket: Measurement[];
 }

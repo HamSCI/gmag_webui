@@ -1,15 +1,34 @@
 import Measurement from "./Measurement.js";
 
+// Row palette: solid line color + translucent fill for the min/max envelope.
+// Order: H, E, Z, magnitude.
+const SPARK_ROWS = [
+    { color: "#f00", fill: "rgba(255, 0, 0, 0.18)" },
+    { color: "#0f0", fill: "rgba(0, 200, 0, 0.16)" },
+    { color: "#0af", fill: "rgba(0, 170, 255, 0.18)" },
+    { color: "#f0f", fill: "rgba(255, 0, 255, 0.15)" },
+];
+
 /**
- * Builds the Trends sparkline traces: one line plus a current-value marker for
- * each row (H, E, Z, magnitude, temperature).
+ * Builds the Trends sparkline traces: for each row (H, E, Z, magnitude) a
+ * min/max envelope band, the average line over it, and a marker on the latest
+ * point.
  *
- * The H/E/Z/magnitude rows are drawn in display space via `toDisplay`, which
- * applies the active source's rotation (and delta-B baseline) exactly like the
- * main plot — so the sparklines mirror what's plotted rather than the raw
- * sensor axes. Temperature is not a field component, so it is shown as-is.
+ * The rows are drawn in display space via `toDisplay`, which applies the active
+ * source's rotation (and delta-B baseline) exactly like the main plot — so the
+ * sparklines mirror what's plotted rather than the raw sensor axes.
  *
- * @param {Measurement[]} sparklines downsampled measurements, ascending by time
+ * The band comes from each bucket's min/max corner vectors. For H/E/Z this is
+ * exact: the app's transforms are signed-axis permutations (90-degree rotations)
+ * plus a constant delta-B offset, so each display component is `±(one raw
+ * component) + const`, and transforming both corners then taking the per-point
+ * componentwise min/max recovers the true display-space range. Magnitude is
+ * nonlinear, so its band (from the corner magnitudes) is an approximation of the
+ * intra-bucket range — good for the domain's large baseline field with small
+ * fluctuations; the band is always widened to enclose the average line.
+ *
+ * @param {{avg: Measurement, lo: Measurement, hi: Measurement}[]} sparklines
+ *   per-bucket aggregates, ascending by time
  * @param {(m: Measurement) => import("./Vector.js").default} toDisplay maps a
  *   measurement to its display-space HEZ vector
  */
@@ -17,41 +36,60 @@ export function buildSparklineTraces(sparklines, toDisplay) {
     if (sparklines.length === 0) {
         return [];
     }
-    const times = sparklines.map(m => m.ts);
-    const vecs = sparklines.map(toDisplay);
-    const temps = sparklines.map(m => m.celsius);
+    const times = sparklines.map(s => s.avg.ts);
+    const avgV = sparklines.map(s => toDisplay(s.avg));
+    const loV = sparklines.map(s => toDisplay(s.lo));
+    const hiV = sparklines.map(s => toDisplay(s.hi));
     const li = sparklines.length - 1;
     const lastTs = times[li];
 
-    // One row = a line over the whole series plus a marker on the latest point.
-    const row = (color, ys, xaxis, yaxis) => [
+    // For a display value (a component index or the vector magnitude), produce
+    // the per-point average / lower / upper arrays. The band is widened to
+    // enclose the average so the line never escapes it (only possible for the
+    // nonlinear magnitude row; for H/E/Z the average is already within range).
+    const series = (pick) => {
+        const avg = avgV.map(pick);
+        const a = loV.map(pick);
+        const b = hiV.map(pick);
+        return {
+            avg,
+            lower: a.map((v, i) => Math.min(v, b[i], avg[i])),
+            upper: a.map((v, i) => Math.max(v, b[i], avg[i])),
+        };
+    };
+
+    // One row = a min/max band (upper line + filled lower line), the average
+    // line, and a current-value marker. The band is drawn first so the line
+    // sits on top.
+    const row = ({ color, fill }, s, xaxis, yaxis) => [
         {
-            type: "scattergl",
-            mode: "lines",
-            marker: { color },
-            line: { width: 1.5 },
-            x: times,
-            y: ys,
-            xaxis,
-            yaxis,
+            type: "scatter", mode: "lines", x: times, y: s.upper,
+            line: { width: 0 }, hoverinfo: "skip", showlegend: false,
+            xaxis, yaxis,
         },
         {
-            type: "scattergl",
-            mode: "markers",
-            marker: { color, size: 6 },
-            x: [lastTs],
-            y: [ys[li]],
-            xaxis,
-            yaxis,
+            type: "scatter", mode: "lines", x: times, y: s.lower,
+            line: { width: 0 }, fill: "tonexty", fillcolor: fill,
+            hoverinfo: "skip", showlegend: false, xaxis, yaxis,
+        },
+        {
+            type: "scatter", mode: "lines", x: times, y: s.avg,
+            line: { width: 1.5, color }, xaxis, yaxis,
+        },
+        {
+            type: "scatter", mode: "markers", x: [lastTs], y: [s.avg[li]],
+            marker: { color, size: 6 }, xaxis, yaxis,
         },
     ];
 
+    const comp = (c) => series((v) => v[c]);
+    const mag = series((v) => v.magnitude);
+
     return [
-        ...row("#f00", vecs.map(v => v[0]), "x", "y"),
-        ...row("#0f0", vecs.map(v => v[1]), "x2", "y2"),
-        ...row("#0af", vecs.map(v => v[2]), "x3", "y3"),
-        ...row("#f0f", vecs.map(v => v.magnitude), "x4", "y4"),
-        ...row("#ffae00", temps, "x5", "y5"),
+        ...row(SPARK_ROWS[0], comp(0), "x", "y"),
+        ...row(SPARK_ROWS[1], comp(1), "x2", "y2"),
+        ...row(SPARK_ROWS[2], comp(2), "x3", "y3"),
+        ...row(SPARK_ROWS[3], mag, "x4", "y4"),
     ];
 }
 
