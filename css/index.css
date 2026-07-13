@@ -350,9 +350,9 @@ td {
     padding: 2px;
 }
 
-tbody tr:hover {
+/* tbody tr:hover {
     background: var(--row-hover);
-}
+} */
 
 /* Alternate row color slightly. The spreadsheet body is virtualized (only the
    visible window is in the DOM), so striping is keyed to a per-row .stripe class
