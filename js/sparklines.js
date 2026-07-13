@@ -1,4 +1,4 @@
-import Measurement from "./Measurement.js";
+import Measurement from "./object/Measurement.js";
 
 // Row palette: solid line color + translucent fill for the min/max envelope.
 // Order: H, E, Z, magnitude.
@@ -29,8 +29,8 @@ const SPARK_ROWS = [
  *
  * @param {{avg: Measurement, lo: Measurement, hi: Measurement}[]} sparklines
  *   per-bucket aggregates, ascending by time
- * @param {(m: Measurement) => import("./Vector.js").default} toDisplay maps a
- *   measurement to its display-space HEZ vector
+ * @param {(m: Measurement) => import("./object/Vector.js").default} toDisplay
+ * maps a measurement to its display-space HEZ vector
  */
 export function buildSparklineTraces(sparklines, toDisplay) {
     if (sparklines.length === 0) {

@@ -1,4 +1,4 @@
-import Measurement from "./Measurement.js";
+import Measurement from "./object/Measurement.js";
 
 /**
  * Computes a single trailing moving-average Measurement: the mean of every

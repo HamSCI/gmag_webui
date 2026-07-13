@@ -1,6 +1,6 @@
 import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
-import Measurement from "./Measurement.js";
-import Vector from "./Vector.js";
+import Measurement from "./object/Measurement.js";
+import Vector from "./object/Vector.js";
 import { movingAverage, slidingWindowMeans, trailingAverageAt } from "./filter.js";
 import { minMaxOfBucket, reduceBucket } from "./sparklines.js";
 

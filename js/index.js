@@ -1,10 +1,10 @@
 /// <reference path="./index.d.ts" />
-import Measurement from "./Measurement.js";
+import Measurement from "./object/Measurement.js";
 import { buildSparklineTraces, minMaxOfBucket, reduceBucket } from "./sparklines.js";
 import { trailingAverageAt, slidingWindowMeans } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
-/** @typedef {import("./Vector.js").default} Vector */
+/** @typedef {import("./object/Vector.js").default} Vector */
 
 const timeRanges = {
     "1m": 60,
@@ -14,7 +14,7 @@ const timeRanges = {
     // "4h": 14400,
 };
 const PLOTS_BUF_MAX = 3600; // 1 hour max buffer
-const SPARK_BUF_MAX = 100;
+const SPARK_BUF_MAX = 180;
 const SL_BUCKET_MAX = 10;
 const MAX_SOURCES = 6; // tab cap, for performance
 
