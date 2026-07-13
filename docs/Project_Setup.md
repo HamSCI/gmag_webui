@@ -41,6 +41,7 @@ For the client:
 
 * The client can run any operating system.
   * Docker Desktop is recommended for running the dashboard.
+  * Deno can also be installed directly
 
 ## Host Setup
 
@@ -98,10 +99,11 @@ Connect the Pololu adapter along with the RM3100 sensor board to the host. The
 green and blue LEDs should light up and hold steady. If the LEDs are blinking,
 it is likely that your computer cannot find the adapter.
 
-Run mag-usb:
+Naviagate back to the home directory and run mag-usb:
 
 ```bash
-./mag-usb/build/mag-usb
+cd ~
+./mag-usb/build/mag-usb &
 ```
 
 ## Client Setup

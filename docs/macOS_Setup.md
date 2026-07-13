@@ -17,7 +17,7 @@ magnetometer and serve the web dashboard on a single computer.
   `brew install socat`)
 * Pololu Isolated USB-to-I²C Adapter (products 5396 or 5397)
 * RM3100-based magnetometer board
-* I²C cable
+* RJ45 cable
 * Male-to-Male USB-C cable
 
 ## Hardware Setup
@@ -40,7 +40,7 @@ magnetometer and serve the web dashboard on a single computer.
    ```bash
    socat -d -d TCP-LISTEN:1234,reuseaddr,fork FILE:<DEVICE>,raw,echo=0 &
    ```
-2. Open Docker Desktop to ensure the Docker daemon is running.
+2. Open Docker Desktop to ensure the Docker engine is running.
 3. In a separate Terminal, navigate to this project's root directory and run
    `docker compose up -d` to start a shared container. The dashboard is
    accessible on `localhost:8000`.
@@ -52,7 +52,7 @@ magnetometer and serve the web dashboard on a single computer.
    ```
 6. Run this command to start mag-usb as a background process:
    ```bash
-   ./mag-usb/build/mag-usb &
+   ./mag-usb &
    ```
 7. If mag-usb is running properly, you can `exit` the shell. mag-usb will
    continue to run in the background until the container is stopped.

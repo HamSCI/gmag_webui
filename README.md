@@ -47,7 +47,7 @@ for Windows or macOS clients. The project is run through a Deno container.
 
 ## Usage
 
-In the vendor folder, unzip the archive containing fontawesome.
+In the vendor folder, unzip the archive containing Font Awesome.
 
 In a CLI, navigate to the project's root directory. Start the dashboard with
 Deno:
@@ -78,3 +78,14 @@ check mag-usb to make sure it is configured correctly.
 The dashboard will autoscroll with the most recently collected data. You can
 zoom in/pan on specific regions of the plots to disable the autoscroll behavior.
 The behavior can be re-enabled by double clicking on the plots.
+
+## Features
+
+* Real-Time data streaming via WebSocket protocol or MQTT
+* .log file uploading for historical data viewing
+* Tabbed interface for tracking multiple sources
+* Baseline post-processing and rate of change
+* Rotation post-processing
+* Moving average to smooth noisy data
+* Export live data in JSONL or CSV format (up to 1 hour continuous)
+* Light/dark theme support
