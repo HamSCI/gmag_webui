@@ -132,6 +132,10 @@ main {
     min-height: 0;
 }
 
+#wordmark {
+    font-style: italic;
+}
+
 #plots {
     height: 100%;
 }
@@ -931,6 +935,8 @@ td {
         grid-column: 2;
         grid-row: 1 / span 2;
         padding-top: 5px;
+        /* Make the grid gap between all elements equal */
+        padding-left: 0;
     }
     /* Pin the config sidebar to the viewport, not the now-scrollable band, so
        it stays in view while the band scrolls underneath it. */
@@ -941,5 +947,10 @@ td {
         /* The footer paints above the drawer (z-index); pad the scroll area so
            the last control can scroll clear of it instead of hiding behind. */
         padding-bottom: 50px;
+    }
+    /* The wordmark takes up too much space in portrait mode. Give more space
+       to the tabber. */
+    #wordmark {
+        display: none;
     }
 }

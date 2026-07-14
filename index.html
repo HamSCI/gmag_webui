@@ -39,7 +39,7 @@
                 <a href="https://hamsci.org" target="_blank" title="HamSCI website">
                     <img src="images/HamSci.png" height="30" />
                 </a>
-                <div id="wordmark" style="font-style: italic;">Magnetometer Dash</div>
+                <div id="wordmark">Magnetometer Dash</div>
                 <!-- Tabbed interface for multiple data sources (issue #21).
                      Tabs are rendered into #tabs by js/index.js. -->
                 <div id="tabber">
@@ -80,7 +80,7 @@
                         <div class="type-fields" data-type="websocket">
                             <label class="field">
                                 <span class="field-label">WebSocket URL</span>
-                                <input type="text" id="wsUrl" class="mono" placeholder="ws://host:port" />
+                                <input type="url" id="wsUrl" class="mono" placeholder="ws://host:port" />
                                 <span class="field-error" id="wsUrlErr"></span>
                             </label>
                         </div>
@@ -88,7 +88,7 @@
                         <div class="type-fields" data-type="mqtt" hidden>
                             <label class="field">
                                 <span class="field-label">Broker URL</span>
-                                <input type="text" id="mqttBroker" class="mono" placeholder="wss://broker:port" />
+                                <input type="url" id="mqttBroker" class="mono" placeholder="wss://broker:port" />
                                 <span class="field-error" id="mqttBrokerErr"></span>
                             </label>
                             <label class="field">
