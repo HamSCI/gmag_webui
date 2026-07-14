@@ -215,8 +215,8 @@ let updateLock = false;
 function plotTheme() {
     const dark = document.documentElement.dataset.theme === "dark";
     return dark
-        ? { paper: "#1e1e1e", plot: "#252525", grid: "#3a3a3a", font: "#e8e8e8" }
-        : { paper: "#ffffff", plot: "#f7f9fb", grid: "#e5e7eb", font: "#1a1a1a" };
+        ? { paper: "#1e1e1e", plot: "#252525", grid: "#3a3a3a", font: "#e8e8e8", border: "#4d4d4d" }
+        : { paper: "#ffffff", plot: "#f7f9fb", grid: "#e5e7eb", font: "#1a1a1a", border: "#cbd5e1" };
 }
 
 // Paint the active theme's colors onto a freshly cloned layout so every newPlot
@@ -233,6 +233,12 @@ function themeLayout(layout) {
     }
     if (layout.legend) {
         layout.legend.font = { ...(layout.legend.font || {}), color: t.font };
+    }
+    // Per-subplot separator boxes (plots.json shapes) track the theme.
+    if (Array.isArray(layout.shapes)) {
+        for (const s of layout.shapes) {
+            s.line = { ...(s.line || {}), color: t.border };
+        }
     }
     return layout;
 }
@@ -256,6 +262,11 @@ function retintPlots() {
         }
         if (div.layout.legend) {
             upd["legend.font.color"] = t.font;
+        }
+        if (Array.isArray(div.layout.shapes)) {
+            div.layout.shapes.forEach((_, i) => {
+                upd[`shapes[${i}].line.color`] = t.border;
+            });
         }
         Plotly.relayout(div, upd);
     }
@@ -322,6 +333,17 @@ function drawSparkPlot(traces) {
 
 drawMainPlot(structuredClone(plotsInit.traces));
 drawSparkPlot(structuredClone(slInit.traces));
+
+// The "x unified" hover readout is shown on tap on touch devices and otherwise
+// lingers until the next tap inside the plot. Dismiss it whenever the user taps
+// anywhere outside the plot so a stale readout doesn't stay pinned over the
+// chart (issue #27). Registered once (not in attachPlotHandlers, which re-runs
+// per newPlot) since it targets the document, not the plot's event registry.
+document.addEventListener("pointerdown", ev => {
+    if (!plotsDiv.contains(ev.target)) {
+        Plotly.Fx.unhover(plotsDiv);
+    }
+});
 
 /**
  * Applies the active source's coordinate transform to a measurement's HEZ.

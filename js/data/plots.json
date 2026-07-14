@@ -175,10 +175,13 @@
         "template": "plotly_white",
         "margin": {
             "l": 50,
-            "r": 0,
+            "r": 30,
             "t": 0,
             "b": 0,
             "pad": 0
+        },
+        "modebar": {
+            "orientation": "v"
         },
         "paper_bgcolor": "#fff",
         "plot_bgcolor": "#f7f9fb",
@@ -232,6 +235,13 @@
             "width": 1,
             "bgcolor": "transparent"
         },
+        "shapes": [
+            { "type": "rect", "xref": "paper", "yref": "paper", "x0": 0, "x1": 1, "y0": 0.81, "y1": 1.0, "line": { "color": "#cbd5e1", "width": 1 }, "fillcolor": "rgba(0,0,0,0)", "layer": "below" },
+            { "type": "rect", "xref": "paper", "yref": "paper", "x0": 0, "x1": 1, "y0": 0.61, "y1": 0.8, "line": { "color": "#cbd5e1", "width": 1 }, "fillcolor": "rgba(0,0,0,0)", "layer": "below" },
+            { "type": "rect", "xref": "paper", "yref": "paper", "x0": 0, "x1": 1, "y0": 0.41, "y1": 0.6, "line": { "color": "#cbd5e1", "width": 1 }, "fillcolor": "rgba(0,0,0,0)", "layer": "below" },
+            { "type": "rect", "xref": "paper", "yref": "paper", "x0": 0, "x1": 1, "y0": 0.21, "y1": 0.40, "line": { "color": "#cbd5e1", "width": 1 }, "fillcolor": "rgba(0,0,0,0)", "layer": "below" },
+            { "type": "rect", "xref": "paper", "yref": "paper", "x0": 0, "x1": 1, "y0": 0.1, "y1": 0.2, "line": { "color": "#cbd5e1", "width": 1 }, "fillcolor": "rgba(0,0,0,0)", "layer": "below" }
+        ],
         "transition": {
             "duration": 250,
             "easing": "cubic"

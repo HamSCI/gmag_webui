@@ -189,6 +189,10 @@ footer {
     /* Vertically center both columns (copyright text + theme toggle) in the row
        so the toggle stays centered regardless of the row's height. */
     align-items: center;
+    /* Paint above the config drawer so the portrait-mode fixed sidebar
+       (position: fixed; bottom: 0) can't cover the footer (issue #27). */
+    position: relative;
+    z-index: 2;
 }
 
 .layout {
@@ -369,6 +373,12 @@ td {
 
 #status {
     text-align: right;
+    /* Keep the connection status on a single line; when many/long source tabs
+       fill the header, the tab strip scrolls (#tabs overflow-x) instead of
+       squeezing this text into an ugly wrap (issue #27). */
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 12px;
 }
 
 #status.success {
@@ -928,5 +938,8 @@ td {
         position: fixed;
         top: 45px;
         bottom: 0;
+        /* The footer paints above the drawer (z-index); pad the scroll area so
+           the last control can scroll clear of it instead of hiding behind. */
+        padding-bottom: 50px;
     }
 }

@@ -144,3 +144,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (responsive layout)
 - **Human Review Status**: Reviewed and verified (headless Chromium at iPad landscape 1024×768 and portrait 768×1024 with touch: no JS/console errors; portrait fits with no scroll and Z/Mag sparklines visible; spreadsheet no longer overflows/cramps even with dB/dt; tap opens sidebar / selects source type / adds tab; `deno lint` clean and 28 tests pass; author verified across major browsers and the tablet layout iterations)
 - **Git Hash**: b215225
+
+## [2026-07-14 15:15 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8 (1M context)
+- **Session Purpose**: Fix four iPad/tablet responsive-layout bugs found in device testing (issue #27) and add per-subplot separator borders to the main plot. (1) The Plotly "x unified" hover readout lingered on tap until the next tap inside the plot; now dismissed on a tap anywhere outside the plot. (2) In landscape the modebar obstructed the legend; the modebar is now vertical with a right-margin gutter. (3) The connection-status text wrapped when many/long source tabs filled the header; it now stays on one line while the tab strip scrolls. (4) In portrait the fixed config sidebar covered the footer; the footer now paints above the drawer and the drawer content clears it. Also added theme-aware rectangle borders around each of the five stacked subplots to separate them and de-clutter the y-axis labels.
+- **Sections/Files Affected**: `js/index.js` (document-level `pointerdown` → `Plotly.Fx.unhover`; theme-aware plot border color threaded through `plotTheme()`/`themeLayout()`/`retintPlots()`), `js/data/plots.json` (main-plot layout: `modebar.orientation: "v"`, `margin.r` gutter, five per-subplot border `shapes`), `css/index.css` (`#status` nowrap/flex-shrink; `footer` position/z-index; portrait `#config` padding-bottom)
+- **Nature of Contribution**: Code generation (bug fixes and a plot styling feature)
+- **Human Review Status**: Reviewed and verified (tested on iPad against a Mac-served dev build; author confirmed the four fixes; `plots.json` valid, 28 tests pass)
+- **Git Hash**: [fill in after committing]
