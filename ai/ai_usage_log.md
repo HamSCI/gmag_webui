@@ -151,4 +151,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/index.js` (document-level `pointerdown` → `Plotly.Fx.unhover`; theme-aware plot border color threaded through `plotTheme()`/`themeLayout()`/`retintPlots()`), `js/data/plots.json` (main-plot layout: `modebar.orientation: "v"`, `margin.r` gutter, five per-subplot border `shapes`), `css/index.css` (`#status` nowrap/flex-shrink; `footer` position/z-index; portrait `#config` padding-bottom)
 - **Nature of Contribution**: Code generation (bug fixes and a plot styling feature)
 - **Human Review Status**: Reviewed and verified (tested on iPad against a Mac-served dev build; author confirmed the four fixes; `plots.json` valid, 28 tests pass)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: ac5277e
