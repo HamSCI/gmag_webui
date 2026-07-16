@@ -10,9 +10,10 @@
     --col-danger: #ff3b14;
     --col-warning: #ffe100;
     --col-info: #00aeff;
-    --col-btn-inactive: #00bfff;
-    --col-btn-hover: #69dcff;
-    --col-btn-disabled: rgba(0, 125, 166, 0.9);
+    --btn-primary-bg: #00bfff;
+    --btn-primary-hover: #69dcff;
+    --btn-primary-active: #a0e4ff;
+    --btn-primary-disabled: #007da6e6;
     --col-tab-active: #424242;
     --right-side-radius: 8px;
 
@@ -41,6 +42,7 @@
     /* Secondary buttons */
     --btn-secondary-bg: #515151;
     --btn-secondary-hover: #5e5e5e;
+    --btn-secondary-active: #757575;
     --btn-secondary-fg: #ffffff;
     /* Config panel (instrument-panel surface) */
     --panel-bg: #2b2b2b;
@@ -160,7 +162,7 @@ a {
 }
 
 input[type="button"], button {
-    background: var(--col-btn-inactive);
+    background: var(--btn-primary-bg);
     color: #ffffff;
     padding: 4px;
     border: 0;
@@ -168,10 +170,10 @@ input[type="button"], button {
     transition: background .2s ease;
 }
 input[type="button"]:hover, button:hover {
-    background: var(--col-btn-hover);
+    background: var(--btn-primary-hover);
 }
 input[type="button"]:disabled, button:disabled {
-    background: var(--col-btn-disabled);
+    background: var(--btn-primary-disabled);
 }
 
 input[type="button"] {
@@ -534,7 +536,7 @@ td {
 }
 .field input:focus-visible,
 .field select:focus-visible {
-    outline: 2px solid var(--col-btn-inactive);
+    outline: 2px solid var(--btn-primary-bg);
     outline-offset: 1px;
 }
 .field input[type="file"] {
@@ -590,7 +592,8 @@ td {
 
 /* Buttons */
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-error {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -610,11 +613,14 @@ td {
     font-weight: 500;
 }
 .btn-primary {
-    background-color: var(--col-btn-inactive);
+    background-color: var(--btn-primary-bg);
     color: #fff;
 }
 .btn-primary:hover {
-    background-color: var(--col-btn-hover);
+    background-color: var(--btn-primary-hover);
+}
+.btn-primary:active {
+    background-color: var(--btn-primary-active);
 }
 .btn-secondary {
     background-color: var(--btn-secondary-bg);
@@ -623,6 +629,19 @@ td {
 .btn-secondary:hover {
     background-color: var(--btn-secondary-hover);
 }
+.btn-secondary:active {
+    background-color: var(--btn-secondary-active);
+}
+.btn-error {
+    background-color: #e65353;
+    color: #fff;
+}
+.btn-error:hover {
+    background-color: #ee2d2d;
+}
+.btn-error:active {
+    background-color: #f00;
+}
 
 /* Segmented control (source type, moving-average toggle) */
 .select-group {
@@ -630,11 +649,18 @@ td {
     flex-direction: row;
 }
 .select-group > button {
+    background-color: var(--btn-secondary-bg);
     flex: 1 1 0;
     border: 0;
     padding: 7px 4px;
     font-size: 12px;
     cursor: pointer;
+}
+.select-group > button:not(:disabled):hover {
+    background-color: var(--btn-secondary-hover);
+}
+.select-group > button:not(:disabled):active {
+    background-color: var(--btn-secondary-active);
 }
 .select-group > button:not(:first-of-type):not(:last-of-type) {
     border-radius: 0;
