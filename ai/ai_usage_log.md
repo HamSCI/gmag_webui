@@ -152,3 +152,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (bug fixes and a plot styling feature)
 - **Human Review Status**: Reviewed and verified (tested on iPad against a Mac-served dev build; author confirmed the four fixes; `plots.json` valid, 28 tests pass)
 - **Git Hash**: ac5277e
+
+## [2026-07-16 13:02 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8 (1M context)
+- **Session Purpose**: Make the config sidebar constrict the main plots rather than cover them (keeping the y-axis visible when the menu is open), and refine the plot/data-column layout on landscape tablets — shrink the data column on open, scale Current Reading and spreadsheet text to fit with smooth transitions, collapse export buttons to icon-only, and scope the overrides out of the portrait layout.
+- **Sections/Files Affected**: `css/index.css` (`.layout` 3-column grid drawer where the config spacer constricts the plots; `main`/`.right-column` grid columns; `@media (min-width: 901px) and (max-width: 1300px)` block — data column 350px, Current Reading + spreadsheet text scaling, icon-only export buttons, trimmed cell padding; `font-size` transitions on `.cell-value` and `#spreadsheet`), `index.html` (export button labels wrapped in `.btn-label` spans with `title` tooltips), `js/index.js` (`setSidebarOpen()` helper toggling `.config-open`; Plotly re-fit on the layout `transitionend`)
+- **Nature of Contribution**: Code generation and edit (CSS/HTML/JS)
+- **Human Review Status**: Reviewed and verified (headless WebKit + Chromium layout checks at portrait/landscape widths — drawer constricts plots with y-axis visible, no spreadsheet overflow at 1194px, portrait unaffected; 28/28 tests pass)
+- **Git Hash**: [fill in after committing]

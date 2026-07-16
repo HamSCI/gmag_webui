@@ -130,6 +130,13 @@ main {
     /* Allow the grid row to constrain the plots rather than the plots'
        intrinsic height stretching the row (and the whole layout) taller. */
     min-height: 0;
+    /* Second layout column: the first (leading) column is the config drawer's
+       reserved space, which is 0 until the drawer opens. */
+    grid-column: 2;
+    /* Clip the plot to its column so that, during the open/close width
+       transition (Plotly re-fits only once it settles), the old-width chart is
+       trimmed rather than spilling over the right column. */
+    overflow: hidden;
 }
 
 #wordmark {
@@ -205,12 +212,20 @@ footer {
        grid row to it (minmax floor of 0), so tall column content scrolls or
        clips inside its cell instead of stretching the page. */
     min-height: 0;
-    /* Positioning context for the config sidebar, which overlays this band
-       (between the header and footer) rather than the whole viewport. */
+    /* Positioning context for the config drawer, which is absolutely positioned
+       over the (empty) leading grid column it reserves. */
     position: relative;
     display: grid;
-    grid-template-columns: 1fr 500px;
+    /* Three columns: [config drawer] [plots] [right column]. The drawer column
+       is 0 until the drawer opens, at which point it grows and pushes the plots
+       right — constricting them rather than covering them, so the y-axis stays
+       visible. Animate the track so the plots slide in step with the drawer. */
+    grid-template-columns: 0 1fr 500px;
     grid-template-rows: minmax(0, 1fr);
+    transition: grid-template-columns 0.3s ease;
+}
+.layout.config-open {
+    grid-template-columns: 320px 1fr 500px;
 }
 
 /*TODO: At some point we want to make this resizable.*/
@@ -222,6 +237,7 @@ footer {
        of pushing content off-screen. */
     grid-template-rows: auto 15% minmax(0, 1fr);
     min-height: 0;
+    grid-column: 3; /* third layout column (after the drawer + plots) */
 }
 
 .content-box {
@@ -250,6 +266,9 @@ footer {
     background-color: var(--panel-bg);
     color: var(--panel-text);
     transition: transform 0.3s ease;
+}
+.layout.config-open #config {
+    transform: translateX(0);
 }
 
 #sideToggle {
@@ -288,6 +307,8 @@ footer {
     margin-top: 5px;
     font-size: 10pt;
     border-radius: var(--right-side-radius);
+    /* Scale smoothly with the drawer transition when the column narrows. */
+    transition: font-size 0.3s ease;
 }
 
 table {
@@ -784,6 +805,9 @@ td {
 }
 .cell-value {
     font-size: 18pt;
+    /* Scale smoothly in step with the drawer's grid-template-columns transition
+       when the data column narrows/widens (see the max-width: 1300px block). */
+    transition: font-size 0.3s ease;
 }
 
 /* Src: https://www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
@@ -865,8 +889,50 @@ td {
    stack the plots over the data band.
    ---------------------------------------------------------------------------- */
 
+/* Landscape tablets and small windows (covers iPad landscape ~1024–1194):
+   opening the drawer here would crush the plots, since the base constrict keeps
+   the 500px data column (plot = width − 320 − 500). Borrow the space from the
+   data column instead so the plots stay usable with the y-axis visible; the
+   column restores to 500px when the drawer closes. Kept in px (not fr) so it
+   interpolates smoothly with the closed state during the transition. The
+   now-narrow column also needs the smaller spreadsheet text.
+   Floored at min-width: 901px so these config-open overrides don't leak into
+   the portrait layout (≤ 900px), which stacks the panels and has its own
+   sizing — otherwise the higher-specificity .config-open rules would shrink the
+   portrait cells/table when the (overlay) drawer opens. */
+@media (min-width: 901px) and (max-width: 1300px) {
+    .layout.config-open {
+        grid-template-columns: 320px 1fr 350px;
+    }
+    /* With the data column narrowed to 350px, scale its text down so the
+       Current Reading values and the spreadsheet columns still fit; restored to
+       full size when the drawer closes. */
+    .layout.config-open .cell-value {
+        font-size: 12pt;
+    }
+    /* Collapse the export buttons to icons only (labels kept as title tooltips)
+       so they stop crowding the "Spreadsheet" header. */
+    .layout.config-open #data .btn-label {
+        display: none;
+    }
+    .layout.config-open #data .btn-primary.sm {
+        padding: 4px 6px;
+    }
+    /* Shrink the spreadsheet type and trim cell padding so the timestamp and
+       the ~9-char nT values fit their columns without spilling. */
+    .layout.config-open #spreadsheet {
+        font-size: 7.5pt;
+    }
+    .layout.config-open #spreadsheet td {
+        padding: 1px 0;
+    }
+    .layout.config-open #spreadsheet thead th {
+        padding: 3px 0;
+    }
+}
+
 /* Tablet widths: smaller spreadsheet text so the value columns (up to 7 with
-   dB/dt) don't run together in the fixed-width data column. */
+   dB/dt) don't run together in the fixed-width 500px data column. */
 @media (max-width: 1100px) {
     #spreadsheet {
         font-size: 8.5pt;

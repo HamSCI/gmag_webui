@@ -1095,15 +1095,29 @@ document.getElementById("csv").addEventListener("click", _ => {
 // Sidebar: toggle
 // ----------------------------------------------------------------------------
 const sideToggle = document.getElementById("sideToggle");
+const layoutEl = document.querySelector(".layout");
+
+/** Reflects the config-drawer open state on the layout and the toggle icon. */
+function setSidebarOpen(open) {
+    layoutEl.classList.toggle("config-open", open);
+    sideToggle.classList.toggle("fa-bars", !open);
+    sideToggle.classList.toggle("fa-xmark", open);
+}
+
 sideToggle.addEventListener("click", () => {
-    const sidebar = document.getElementById("config");
-    if (sideToggle.classList.contains("fa-xmark")) {
-        sidebar.style.transform = "translateX(-100%)";
-    } else {
-        sidebar.style.transform = "translateX(0)";
+    setSidebarOpen(!layoutEl.classList.contains("config-open"));
+});
+
+// The drawer reserves a layout column (it constricts the plots instead of
+// covering them), so re-fit Plotly to the new plot width once the width
+// transition settles. Plotly's `responsive` only tracks window resizes, not
+// container-only changes, so this must be explicit.
+layoutEl.addEventListener("transitionend", ev => {
+    if (ev.propertyName === "grid-template-columns") {
+        // On tablets the drawer also narrows the data column, so re-fit both.
+        Plotly.Plots.resize(plotsDiv);
+        Plotly.Plots.resize(sparkDiv);
     }
-    sideToggle.classList.toggle("fa-bars");
-    sideToggle.classList.toggle("fa-xmark");
 });
 
 // ----------------------------------------------------------------------------
@@ -1561,9 +1575,7 @@ function renderTabs() {
  * Opens the config sidebar (used when adding a source to configure).
  */
 function openSidebar() {
-    document.getElementById("config").style.transform = "translateX(0)";
-    sideToggle.classList.remove("fa-bars");
-    sideToggle.classList.add("fa-xmark");
+    setSidebarOpen(true);
 }
 
 /**
