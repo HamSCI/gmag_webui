@@ -55,7 +55,7 @@
     --bg: #f0f2f5;
     --fg: #1a1a1a;
     --muted: #5a5f66;
-    --link: #0a6ebd;
+    --link: #69beff;
     /* Dark brushed silver (gunmetal): light steel highlights over a graphite
        body with a specular seam at the midline. Kept dark so the light chrome
        text and the colored connection-status indicator (green/red/yellow) stay
@@ -273,6 +273,7 @@ footer {
 
 #sideToggle {
     margin-right: 12px;
+    font-size: 14pt;
 }
 
 .flex-row {
