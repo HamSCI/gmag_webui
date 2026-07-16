@@ -86,6 +86,35 @@ export default class Measurement {
     }
 
     /**
+     * Scales this Measurement to a factor of k. This method mutates the value
+     * of `this`.
+     * @param {number} k the scale factor
+     */
+    setScale(k) {
+        this.#xyz = this.#xyz.scale(k);
+    }
+
+    /**
+     * Denoises a Measurement according to a smoothing constant and a previous
+     * data point.
+     * @param {number} alpha the smoothing constant
+     * @param {Measurement} prev the previous data point
+     * @returns {Measurement} the resultant Measurement
+     */
+    smooth(alpha, prev) {
+        /**
+         * @param {number} t the raw value
+         * @param {number} t0 the smoothed value of the previous data point
+         * @returns {number} the smoothed value of t
+         */
+        const smoothFn = (t, t0) => alpha * t + (1 - alpha) * t0;
+        return new Vector(
+            smoothFn(this[0], prev[0]),
+            smoothFn(this[1], prev[1]),
+            smoothFn(this[2], prev[2]));
+    }
+
+    /**
      * Converts an RFC timestamp to a native Date object.
      * @param {string} ts_str a timestamp string formatted according to
      * RFC-2822 standard

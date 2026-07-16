@@ -1,119 +1,164 @@
-/* This script is solely responsible for connecting to the host magnetometer
- * and transferring the magnetometer's data to the index.js script.
- * This script works fine for now as a local variant of the WebSocket hosts,
- * but later, this is all moving to the backend server in favor of serving
- * more intricate elements and visuals like the graphs and the spreadsheet.
+/* Connection manager. Creates independent transports (WebSocket or MQTT), one
+ * per data source, so several stations can stream at once. Each instance is
+ * DOM-free and reports through callbacks; the app decides how to route readings
+ * and status to the right tab/session.
+ *
+ *   const conn = MagConnection.create(config, {
+ *       onReading(json) {},          // one parsed reading
+ *       onStatus(code, retry) {},    // connection status changed
+ *   });
+ *   conn.connect();  conn.disconnect();
+ *
+ *   config: { type: "websocket" | "mqtt",
+ *             websocket: { url },
+ *             mqtt: { broker, topic, username, password } }
+ *
+ *   status codes: 0 connecting, 1 connected, 2 disconnected,
+ *                 3 failed/retrying, 5 auth failed
+ *   (4 "file loaded" is an app-level status for File sources, not a transport.)
  */
+(function () {
+    /**
+     * @param {object} config the source connection config
+     * @param {{ onReading?: function, onStatus?: function }} handlers
+     * @returns {{ connect: function, disconnect: function }}
+     */
+    function createConnection(config, handlers) {
+        const onReading = handlers.onReading || (() => {});
+        const onStatus = handlers.onStatus || (() => {});
 
-const { cookie } = document;
-const host = document.getElementById("host");
-const state = document.getElementById("status");
-let ws = null;
+        let ws = null;
+        let mqttClient = null;
+        // The URL we currently want connected, so a stale socket's backoff
+        // can't resurrect a connection the user has changed or closed.
+        let activeUrl = null;
 
-// Auto-init if a previous host is stored
-if (cookie.startsWith("host")) {
-    const hostUrl = cookie.substring(cookie.indexOf("=") + 1);
-    initWS(hostUrl);
-}
-
-document.getElementById("saveHost").addEventListener("click", ev => {
-    document.dispatchEvent(new CustomEvent("magclose"));
-    if (host.value.trim() === "" && ws instanceof WebSocket) {
-        ws.close();
-        ws = null;
-        return;
-    } else if (host.value) {
-        // If a connection exists, close and free.
-        // Later this will be changed to support multiple hosts.
-        if (ws instanceof WebSocket) {
-            ws.close(1000);
-            ws = null;
-        }
-        initWS(host.value);
-    }
-});
-
-/**
- * Initializes the WebSocket connection.
- * @param {string} url the host URL
- * @param {number} [retry=0] the current reconnect attempt count
- */
-function initWS(url, retry = 0) {
-    setStatus(retry > 0 ? 3 : 0, retry);
-    const MAX_RATE = 30_000;
-    let rate = retry > 0 ? 1000 * (2 ** retry - 1) : 0;
-    if (rate > MAX_RATE) {
-        rate = MAX_RATE;
-    }
-
-    setTimeout(() => {
-        setStatus(0);
-        ws = new WebSocket(url);
-        // Only save the host if it connects.
-        ws.addEventListener("open", e => {
-            document.cookie = `host=${ws.url}`;
-            setStatus(1);
-        });
-
-        ws.addEventListener("close", e => {
-            console.log("Closed", e.code);
-            if (e.code === 1006) {
-                initWS(url, retry + 1);
-            } else {
-                setStatus(2);
-                document.dispatchEvent(new CustomEvent("magclose"));
+        function connectWebSocket(url, retry = 0) {
+            activeUrl = url;
+            onStatus(retry > 0 ? 3 : 0, retry);
+            const MAX_RATE = 30_000;
+            let rate = retry > 0 ? 1000 * (2 ** retry - 1) : 0;
+            if (rate > MAX_RATE) {
+                rate = MAX_RATE;
             }
-        });
 
-        ws.addEventListener("error", e => {
-            console.log(e);
-        });
+            setTimeout(() => {
+                if (activeUrl !== url) {
+                    return;
+                }
+                onStatus(0);
+                ws = new WebSocket(url);
 
-        ws.addEventListener("message", e => {
-            const { data } = e;
-            const json = JSON.parse(data);
-            console.log(json);
-            document.dispatchEvent(new CustomEvent("magread", {
-                detail: json
-            }));
-        });
-    }, rate);
-}
+                ws.addEventListener("open", () => onStatus(1));
 
-/**
- * Helper function for setting the connection status.
- * @param {number} s the status number
- * @param {number} retry the retry count
- */
-function setStatus(s, retry = 0) {
-    const [sText] = state.getElementsByTagName("span");
-    const [ico] = state.getElementsByTagName("i");
+                ws.addEventListener("close", e => {
+                    console.log("Closed", e.code);
+                    if (e.code === 1006 && activeUrl === url) {
+                        connectWebSocket(url, retry + 1);
+                    } else {
+                        onStatus(2);
+                    }
+                });
 
-    switch (s) {
-        case 0:
-            sText.textContent = "Connecting";
-            state.className = "wait";
-            ico.className = "fa-solid fa-arrows-rotate";
-            break;
-        case 1:
-            sText.textContent = "Connected";
-            state.className = "success";
-            ico.className = "fa-solid fa-signal";
-            break;
-        case 2:
-            sText.textContent = "Disconnected";
-            state.className = "error";
-            ico.className = "fa-solid fa-circle-xmark";
-            break;
-        case 3:
-            sText.textContent = `Failed (${retry})`;
-            state.className = "warn";
-            ico.className = "fa-solid fa-triangle-exclamation";
-            break;
+                ws.addEventListener("error", e => console.log(e));
+
+                ws.addEventListener("message", e => {
+                    try {
+                        onReading(JSON.parse(e.data));
+                    } catch (err) {
+                        console.log("Bad WebSocket payload:", err);
+                    }
+                });
+            }, rate);
+        }
+
+        function connectMqtt(cfg) {
+            if (typeof mqtt === "undefined") {
+                console.error("MQTT.js failed to load.");
+                onStatus(2);
+                return;
+            }
+            const { broker, topic, username, password } = cfg;
+            onStatus(0);
+
+            const opts = { reconnectPeriod: 2000 };
+            if (username) {
+                opts.username = username;
+            }
+            if (password) {
+                opts.password = password;
+            }
+            // Set once the broker rejects credentials, so reconnect churn does
+            // not overwrite the clearer "Auth failed" status.
+            let authFailed = false;
+            mqttClient = mqtt.connect(broker, opts);
+
+            mqttClient.on("connect", () => {
+                onStatus(1);
+                mqttClient.subscribe(topic, err => {
+                    if (err) {
+                        console.log("MQTT subscribe error:", err);
+                    }
+                });
+            });
+            mqttClient.on("message", (t, payload) => {
+                try {
+                    onReading(JSON.parse(payload.toString()));
+                } catch (e) {
+                    console.log("Bad MQTT payload:", e);
+                }
+            });
+            mqttClient.on("reconnect", () => {
+                if (!authFailed) {
+                    onStatus(0);
+                }
+            });
+            mqttClient.on("error", e => {
+                console.log("MQTT error:", e);
+                // CONNACK refusal for credentials: 4/5 (MQTT 3.1.1) or
+                // 134/135 (MQTT 5). Stop retrying and surface it clearly.
+                if (e && [4, 5, 134, 135].includes(e.code)) {
+                    authFailed = true;
+                    onStatus(5);
+                    mqttClient.end(true);
+                }
+            });
+            mqttClient.on("offline", () => {
+                if (!authFailed) {
+                    onStatus(2);
+                }
+            });
+        }
+
+        function teardown() {
+            activeUrl = null;
+            if (ws instanceof WebSocket) {
+                ws.close(1000);
+                ws = null;
+            }
+            if (mqttClient) {
+                mqttClient.end(true);
+                mqttClient = null;
+            }
+        }
+
+        function connect() {
+            teardown();
+            if (config.type === "websocket") {
+                connectWebSocket(config.websocket.url);
+            } else if (config.type === "mqtt") {
+                connectMqtt(config.mqtt);
+            }
+            // "file" sources are one-shot loads handled by the app.
+        }
+
+        function disconnect() {
+            teardown();
+            onStatus(2);
+        }
+
+        return { connect, disconnect };
     }
-}
 
-document.addEventListener("magerror", ({ detail: res }) => {
-    alert(res.message);
-    ws.close();
-});
+    window.MagConnection = { create: createConnection };
+})();

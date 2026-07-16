@@ -9,6 +9,13 @@
     --col-btn-disabled: rgba(0, 125, 166, 0.9);
     --col-tab-active: #424242;
     --hbar-grad: linear-gradient(#000000, #606060, #000000);
+    --right-side-radius: 8px;
+    /* Config panel (instrument-panel surface) */
+    --panel-bg: #2b2b2b;
+    --panel-header-bg: #383838;
+    --panel-text: #f0f0f0;
+    --panel-muted: #9a9a9a;
+    --panel-border: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -20,7 +27,8 @@
 body {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -41,6 +49,9 @@ header > div {
 main {
     display: flex;
     flex-direction: column;
+    /* Allow the grid row to constrain the plots rather than the plots'
+       intrinsic height stretching the row (and the whole layout) taller. */
+    min-height: 0;
 }
 
 /* main > div {
@@ -49,6 +60,14 @@ main {
 
 #plots {
     height: 100%;
+}
+
+#sparklines {
+    /* Fill the Trends box below its header so Plotly sizes to the container
+       instead of its default height (which would overflow the grid track). */
+    flex: 1;
+    min-height: 0;
+    padding-top: 5px;
 }
 
 a {
@@ -86,33 +105,66 @@ input:invalid {
 footer {
     width: 100%;
     text-align: center;
-}
-
-footer div {
-    vertical-align: bottom;
     background: var(--hbar-grad);
+    vertical-align: bottom;
     color: #fff;
     padding-top: 7px;
     padding-bottom: 7px;
+    display: grid;
+    grid-template-columns: 1fr 60px;
 }
 
 .layout {
     flex: 1;
+    /* Take exactly the height left by the header/footer and pin the single
+       grid row to it (minmax floor of 0), so tall column content scrolls or
+       clips inside its cell instead of stretching the page. */
+    min-height: 0;
+    /* Positioning context for the config sidebar, which overlays this band
+       (between the header and footer) rather than the whole viewport. */
+    position: relative;
     display: grid;
-    grid-template-columns: 300px 1fr 400px;
+    grid-template-columns: 1fr 500px;
+    grid-template-rows: minmax(0, 1fr);
 }
 
 /*TODO: At some point we want to make this resizable.*/
 .right-column {
     display: grid;
-    grid-template-rows: 1fr 1fr;
+    /* Current Reading sizes to its content (no trailing whitespace), the
+       spreadsheet takes the remaining space and scrolls, and Trends keeps a
+       proportional slice. minmax(0, …) lets the middle row shrink so its
+       table scrolls instead of pushing Trends off-screen. */
+    grid-template-rows: auto minmax(0, 1fr) 25%;
+    min-height: 0;
 }
 
-#config {
+.content-box {
+    padding: 5px 5px 0;
+    /* Stack the header above scrollable/fillable content and keep each box
+       within its grid track so it never pushes the page taller. */
     display: flex;
     flex-direction: column;
-    background-color: #808080;
-    color: #fff;
+    min-height: 0;
+    overflow: hidden;
+}
+
+
+#config {
+    width: 320px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    transform: translateX(-100%);
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--panel-bg);
+    color: var(--panel-text);
+    transition: transform 0.3s ease;
 }
 
 #sideToggle {
@@ -122,14 +174,25 @@ footer div {
 #wordmark {
     font-size: 16pt;
     margin-left: 16px;
-    flex-grow: 1;
+    flex-shrink: 0;
+}
+
+#data, #trends {
+    padding: 0 5px 5px;
 }
 
 #spreadsheet {
-    overflow-y: auto;
-    /* height: 350px; */
-    max-height: 350px;
-    font-size: 11pt;
+    /* Fill the remaining height of the box (below the header). The table body
+       scrolls internally, so this element itself does not scroll. */
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Match the small gap the Current Reading box leaves below its header. */
+    margin-top: 5px;
+    font-size: 10pt;
+    border-radius: var(--right-side-radius);
 }
 
 table {
@@ -137,17 +200,53 @@ table {
     width: 100%;
 }
 
+/* Static header + independently scrolling body. The table is a flex column:
+   the header (.fixed-head) stays put while only the body (.scrolling) scrolls.
+   Header and body rows are laid out as fixed-layout tables so their columns
+   stay aligned. This replaces position: sticky, which recoiled at the top. */
+.fixed-table {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.fixed-head {
+    display: block;
+    flex: 0 0 auto;
+}
+
+.scrolling {
+    display: block;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.fixed-head tr,
+.scrolling tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Keep the timestamp on one line; the remaining columns share the rest. */
+.fixed-head th:first-child,
+.scrolling td:first-child {
+    width: 25%;
+    white-space: nowrap;
+}
+
 thead th {
-    position: sticky;
-    top: 0;
-    background: var(--hbar-grad);
+    background-color: #333;
     color: #fff;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    padding: 6px;
 }
 
 td {
     text-align: center;
+    padding: 2px;
 }
 
 tbody tr:hover {
@@ -190,9 +289,11 @@ tr:nth-of-type(2n) {
 .header {
     display: flex;
     flex-direction: row;
+    background-image: var(--hbar-grad);
     background-color: #333;
     color: #fff;
     padding: 6px;
+    border-radius: var(--right-side-radius);
 }
 
 .header > * {
@@ -204,80 +305,173 @@ tr:nth-of-type(2n) {
     flex-grow: 2;
 }
 
-.settings-group {
-    display: flex;
-    flex-direction: column;
+/* Collapsible panel cards */
+.panel {
+    border-bottom: 1px solid var(--panel-border);
 }
-.settings-group > .group-header {
+
+.panel-header {
+    width: 100%;
     display: flex;
     flex-direction: row;
-    background-color: #454545;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--panel-header-bg);
     color: #fff;
-    padding: 6px;
-}
-.settings-group > .group-content {
-    display: flex;
-    flex-direction: column;
-    background-color: rgba(0, 0, 0, 0.05);
-    /* padding: 12px; */
-}
-.settings-group > .group-content > * {
-    /* margin-bottom: 12px; */
-}
-.group-content > .control-group:first-of-type {
-    /* margin-top: 12px; */
-}
-
-.group-header > span {
-    flex-grow: 1;
-}
-
-.settings-subhead {
-    display: flex;
-    flex-direction: row;
-    background-color: #616161;
-    color: #fff;
-    padding: 6px;
-}
-
-.control-group {
-    display: flex;
-    flex-direction: column;
-    padding: 8px;
-    /* margin-bottom: 8px; */
-    /* margin-left: 8px; */
-}
-
-.input-group {
-    display: flex;
-    flex-direction: row;
-    font-size: 11pt;
-}
-.input-group > * {
-    padding: 4px;
-}
-.input-group > input {
-    /* border-top-right-radius: 0; */
-    /* border-bottom-right-radius: 0; */
-    border-radius: 4px 0 0 4px;
     border: 0;
-    font-size: inherit;
-    flex-grow: 1;
-}
-.input-group > input[type="file"] {
-    width: 65%;
-}
-.input-group > button:not(:last-of-type) {
     border-radius: 0;
+    padding: 11px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s ease;
 }
-.input-group > button:last-of-type {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
+.panel-header:hover {
+    background-color: #444;
+}
+.panel-header .title {
+    flex-grow: 1;
+    text-align: left;
+}
+.panel-header .chevron {
+    font-size: 10px;
+    color: var(--panel-muted);
+    transition: transform 0.2s ease;
+}
+.panel[data-collapsed="true"] .chevron {
+    transform: rotate(-90deg);
+}
+.panel[data-collapsed="true"] .panel-body {
+    display: none;
 }
 
+.panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 12px;
+}
+
+/* Fields */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.field-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--panel-muted);
+}
+.field-label .muted {
+    text-transform: none;
+    letter-spacing: 0;
+}
+.field input[type="text"],
+.field input[type="password"],
+.field input[type="url"],
+.field select {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 13px;
+    background-color: #fff;
+    color: #1a1a1a;
+}
+.field input.mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+.field input:focus-visible,
+.field select:focus-visible {
+    outline: 2px solid var(--col-btn-inactive);
+    outline-offset: 1px;
+}
+.field input[type="file"] {
+    font-size: 12px;
+    color: var(--panel-text);
+}
+.field-error {
+    font-size: 11px;
+    color: var(--col-danger);
+}
+.field-error:empty {
+    display: none;
+}
+
+/* Fix spacing issues for MQTT broker panel */
+.type-fields[data-type="mqtt"] > .field:not(:first-of-type) {
+    padding-top: 10px;
+}
+
+/* Subheads inside a panel body */
+.subhead {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #cfcfcf;
+}
+
+.note {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--panel-muted);
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 6px;
+    padding: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.btn-primary {
+    background-color: var(--col-btn-inactive);
+    color: #fff;
+}
+.btn-primary:hover {
+    background-color: var(--col-btn-hover);
+}
+.btn-secondary {
+    background-color: #515151;
+    color: #fff;
+}
+.btn-secondary:hover {
+    background-color: #5e5e5e;
+}
+
+/* Segmented control (source type, moving-average toggle) */
 .select-group {
     display: flex;
     flex-direction: row;
+}
+.select-group > button {
+    flex: 1 1 0;
+    border: 0;
+    padding: 7px 4px;
+    font-size: 12px;
+    cursor: pointer;
 }
 .select-group > button:not(:first-of-type):not(:last-of-type) {
     border-radius: 0;
@@ -292,86 +486,213 @@ tr:nth-of-type(2n) {
 }
 .select-group > button:disabled {
     background-color: var(--col-success);
+    color: #fff;
+    cursor: default;
 }
 
-.button-group {
-    display: flex;
-    flex-direction: row;
-}
-.button-group > button:not(:first-of-type):not(:last-of-type) {
-    border-radius: 0;
-}
-.button-group > button:first-of-type {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-}
-.button-group > button:last-of-type {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
+/* Rotation sliders: label | track | value */
 .slider-group {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: 14px 1fr 34px;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.slider-group > input[type="range"] {
+    width: 100%;
+}
+.slider-group > span {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
+.type-fields[hidden] {
+    display: none;
+}
+
+/* Data-source tabs (issue #21) */
 #tabber {
     display: flex;
     flex-direction: row;
-    flex-grow: 3;
-    margin: auto 12px 0;
+    align-items: center;
+    gap: 6px;
+    flex-grow: 1;
+    min-width: 0;
+    margin-left: 16px;
 }
 
 #tabs {
-    max-width: calc(100% - 15px);
-    /* overflow-x: scroll; */
-}
-
-.new-tab-btn {
-    border-color: #fff;
-    border-style: solid;
-    border-width: 3px 3px 0;
-    padding: 6px;
-    transition: .1s;
-}
-.new-tab-btn:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-style: outset;
-}
-.new-tab-btn:active {
-    background-color: rgba(0, 0, 0, 0.1);
-    border-style: inset;
-}
-
-.tooltip {
-    visibility: hidden;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px;
-    position: absolute;
-    z-index: 1;
-    margin-left: 14px;
-    background-color: transparent;
-    color: transparent;
-    transition: color .1s, background-color .1s;
-}
-
-.new-tab-btn:hover .tooltip {
-    visibility: visible;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow-x: auto;
 }
 
 .tab {
     display: flex;
     flex-direction: row;
-    padding: 6px;
-    border-color: #fff;
-    border-style: solid;
-    border-width: 3px 3px 0;
-    color: #fff;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 5px 9px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #cfcfcf;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.tab:hover {
+    background-color: rgba(255, 255, 255, 0.16);
 }
 .tab.active {
-    border-style: outset;
-    background-color: #545454;
+    background-color: var(--panel-bg);
+    color: #fff;
+}
+
+.tab-name {
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tab-status {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--col-danger);
+}
+.tab-status.s-connecting { background-color: var(--col-info); }
+.tab-status.s-connected { background-color: var(--col-success); }
+.tab-status.s-disconnected { background-color: var(--col-danger); }
+.tab-status.s-failed { background-color: var(--col-warning); }
+
+.tab-close {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #aaa;
+    border-radius: 3px;
+    padding: 1px 3px;
+}
+.tab-close:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#addTab {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    cursor: pointer;
+}
+#addTab:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+#addTab:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+#current {
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 5px;
+    padding: 5px 0;
+}
+.row1, .row2 {
+    display: grid;
+    gap: 5px;
+}
+.row1 {
+    grid-template-columns: repeat(3, 1fr);
+}
+.row2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+.cell {
+    padding: 5px;
+    text-align: center;
+    display: grid;
+    border-radius: var(--right-side-radius);
+    color: #fff;
+}
+
+.row1 .cell:first-of-type { background-color: #a0071e; }
+.row1 .cell:nth-of-type(2) { background-color: #335e3b; }
+.row1 .cell:last-of-type { background-color: #023e8a; }
+
+.row2 .cell:first-of-type { background-color: #da1884; }
+.row2 .cell:last-of-type { background-color: #ffb200; }
+
+.cell-head {
+    text-align: left;
+    font-size: 8pt;
+    font-weight: lighter;
+}
+.cell-value {
+    font-size: 18pt;
+}
+
+/* Src: https: //www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 30px;
+    height: 15px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.square .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 4px;
+}
+
+.square .slider:before {
+    position: absolute;
+    content: "";
+    height: 12px;
+    width: 12px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 2px;
+}
+
+.square input:checked + .slider {
+    background-color: #4caf50;
+}
+
+.square input:checked + .slider:before {
+    transform: translateX(14px);
+}
+
+#ldWrapper {
+    display: flex;
+    margin-right: 7px;
+}
+
+#ldWrapper i {
+    padding-right: 7px;
 }

@@ -2,6 +2,12 @@
 
 A Web User Interface for the HamSCI Ground Magnetometer.
 
+## Project Management
+
+Development is tracked on the
+[gmag_webui project board](https://github.com/orgs/HamSCI/projects/7/views/1).
+Issues and pull requests are organized there.
+
 ## Installation
 
 To install this repository, simply `git clone` to your local machine or you can
@@ -10,6 +16,7 @@ download the repository as a zip archive and extract the files.
 This project vendors the following dependencies:
 * Font Awesome
 * Plotly.js
+* mqtt.js
 
 ## Prerequisites
 
@@ -19,25 +26,30 @@ This repository is designed to be used alongside the HamSCI ground magnetometer.
 Instructions for setting up the magnetometer are available
 [here](https://hamsci.org/mag_install).
 
-An additional computer running Linux is required to connect to the magnetometer.
-Ubuntu is recommended, but other distributions should work just fine. Raspberry
-Pis are unsupported.
+An additional computer running Linux or macOS is required to host the
+magnetometer.
+* If using Linux, Ubuntu is recommended, but other distributions should also
+  work.
+* If using macOS, Docker Desktop is required to run mag-usb.
+* Raspberry Pis and Windows are unsupported.
 
 ### Software
 
-Mag-usb must be installed on the host machine with WebSocket mode enabled. The
-repository can be found [here](https://github.com/wittend/mag-usb).
+[Mag-usb](https://github.com/wittend/mag-usb) must be installed on the host
+machine with WebSocket mode enabled.
 
-[Deno](https://deno.com/) is required for the backend.
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) is preferred
+for running the project. The dashboard is served via a Deno container.
 
 ## Usage
 
 In the vendor folder, unzip the archive containing fontawesome.
 
-In a CLI, navigate to the project's root directory and run the command:
+In a CLI, navigate to the project's root directory. Use `docker compose` to
+create a container:
 
 ```bash
-deno task dev
+docker compose up -d frontend
 ```
 
 By default, the dashboard will be available at `localhost:8000`. However, the

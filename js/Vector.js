@@ -4,6 +4,7 @@
  * unit vector, or angular direction.
  */
 export default class Vector {
+    /** @type {number[]} */
     #array = [];
 
     /**
@@ -28,6 +29,14 @@ export default class Vector {
 
     get [2]() {
         return this.#array[2];
+    }
+
+    /**
+     * Returns the horizontal distance of this vector. This corresponds to the
+     * magnitude of the first two components.
+     */
+    get horizontal() {
+        return Math.sqrt((this[0]**2) + (this[1]**2));
     }
 
     /**
@@ -133,5 +142,14 @@ export default class Vector {
                 && this[1] === vector[1]
                 && this[2] === vector[2];
         }
+    }
+
+    /**
+     * Scales this Vector based on a factor k.
+     * @param {number} k the scale factor
+     * @returns {Vector} this Vector scaled to a factor of k
+     */
+    scale(k) {
+        return new Vector(k * this[0], k * this[1], k * this[2]);
     }
 }

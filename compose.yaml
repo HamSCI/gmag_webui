@@ -1,0 +1,30 @@
+services:
+  frontend:
+    image: denoland/deno:ubuntu
+    container_name: gmag-webui
+    working_dir: /app
+    environment:
+      - WS_PORT=8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    command: ["deno", "task", "dev"]
+  backend:
+    container_name: mag-usb
+    build: .
+    environment:
+      - HW_PORT=1234
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8765:8765"
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config.toml:/etc/mag-usb/config.toml
+      - ./logs:/app/logs

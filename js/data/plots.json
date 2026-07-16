@@ -1,0 +1,308 @@
+{
+    "traces": [
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hovertemplate": "%{y:.3f}<extra></extra>",
+            "name": "H (nT)",
+            "xaxis": "x",
+            "yaxis": "y"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#0f0"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hovertemplate": "%{y:.3f}<extra></extra>",
+            "name": "E (nT)",
+            "xaxis": "x2",
+            "yaxis": "y2"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#00f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hovertemplate": "%{y:.3f}<extra></extra>",
+            "name": "Z (nT)",
+            "xaxis": "x3",
+            "yaxis": "y3"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f0f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hovertemplate": "%{y:.3f}<extra></extra>",
+            "name": "Magnitude (nT)",
+            "xaxis": "x4",
+            "yaxis": "y4"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#ffae00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hovertemplate": "%{y:.3f}<extra></extra>",
+            "name": "Temperature (°C)",
+            "xaxis": "x5",
+            "yaxis": "y5"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "H (filtered)",
+            "xaxis": "x",
+            "yaxis": "y"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#0f0"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "E (filtered)",
+            "xaxis": "x2",
+            "yaxis": "y2"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#00f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "Z (filtered)",
+            "xaxis": "x3",
+            "yaxis": "y3"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#f0f"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "Magnitude (filtered)",
+            "xaxis": "x4",
+            "yaxis": "y4"
+        },
+        {
+            "type": "scattergl",
+            "mode": "lines",
+            "marker": {
+                "color": "#ffae00"
+            },
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 2
+            },
+            "hoverinfo": "skip",
+            "showlegend": false,
+            "visible": false,
+            "name": "Temperature (filtered)",
+            "xaxis": "x5",
+            "yaxis": "y5"
+        }
+    ],
+    "layout": {
+        "template": "plotly_white",
+        "margin": {
+            "l": 50,
+            "r": 0,
+            "t": 0,
+            "b": 0,
+            "pad": 0
+        },
+        "grid": {
+            "rows": 5,
+            "columns": 1,
+            "pattern": "independent",
+            "roworder": "top to bottom"
+        },
+        "paper_bgcolor": "#fff",
+        "plot_bgcolor": "#f7f9fb",
+        "hovermode": "x unified",
+        "hoversubplots": "all",
+        "xaxis": {
+            "type": "date",
+            "autorange": false,
+            "showgrid": true,
+            "gridcolor": "#e5e7eb",
+            "gridwidth": 1,
+            "zeroline": false,
+            "tickformat": "%H:%M:%S",
+            "nticks": 8,
+            "anchor": "y",
+            "showticklabels": false
+        },
+        "xaxis2": {
+            "type": "date",
+            "autorange": false,
+            "showgrid": true,
+            "gridcolor": "#e5e7eb",
+            "gridwidth": 1,
+            "zeroline": false,
+            "tickformat": "%H:%M:%S",
+            "nticks": 8,
+            "anchor": "y2",
+            "showticklabels": false,
+            "matches": "x"
+        },
+        "xaxis3": {
+            "type": "date",
+            "autorange": false,
+            "showgrid": true,
+            "gridcolor": "#e5e7eb",
+            "gridwidth": 1,
+            "zeroline": false,
+            "tickformat": "%H:%M:%S",
+            "nticks": 8,
+            "anchor": "y3",
+            "showticklabels": false,
+            "matches": "x"
+        },
+        "xaxis4": {
+            "type": "date",
+            "autorange": false,
+            "showgrid": true,
+            "gridcolor": "#e5e7eb",
+            "gridwidth": 1,
+            "zeroline": false,
+            "tickformat": "%H:%M:%S",
+            "nticks": 8,
+            "anchor": "y4",
+            "showticklabels": false,
+            "matches": "x"
+        },
+        "xaxis5": {
+            "type": "date",
+            "autorange": false,
+            "showgrid": true,
+            "gridcolor": "#e5e7eb",
+            "gridwidth": 1,
+            "zeroline": false,
+            "tickformat": "%H:%M:%S",
+            "nticks": 8,
+            "anchor": "y5",
+            "showticklabels": true,
+            "matches": "x",
+            "side": "bottom",
+            "rangeslider": {
+                "visible": true,
+                "thickness": 0.05
+            }
+        },
+        "yaxis": {
+            "domain": [0.81, 1.0],
+            "anchor": "x"
+        },
+        "yaxis2": {
+            "domain": [0.61, 0.8],
+            "anchor": "x"
+        },
+        "yaxis3": {
+            "domain": [0.41, 0.6],
+            "anchor": "x"
+        },
+        "yaxis4": {
+            "domain": [0.21, 0.40],
+            "anchor": "x"
+        },
+        "yaxis5": {
+            "domain": [0.1, 0.2],
+            "anchor": "x"
+        },
+        "legend": {
+            "orientation": "h",
+            "xanchor": "left",
+            "yanchor": "bottom",
+            "xref": "paper",
+            "yref": "paper",
+            "x": 0,
+            "y": 1,
+            "width": 1,
+            "bgcolor": "transparent"
+        },
+        "transition": {
+            "duration": 250,
+            "easing": "cubic"
+        },
+        "uirevision": "true"
+    },
+    "config": {
+        "responsive": true,
+        "displaylogo": false,
+        "modeBarButtonsToRemove": [
+            "lasso2d",
+            "select2d"
+        ],
+        "scrollZoom": true
+    }
+}

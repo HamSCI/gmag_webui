@@ -1,307 +1,326 @@
 /// <reference path="./index.d.ts" />
 import Measurement from "./Measurement.js";
+import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
+import { trailingAverageAt, movingAverage } from "./filter.js";
+import plotsInit from "./data/plots.json" with { type: "json" };
+import slInit from "./data/sparklines.json" with { type: "json" };
 
 const timeRanges = {
     "1m": 60,
     "5m": 300,
     "15m": 900,
     "1h": 3600,
-    "4h": 14400,
+    // "4h": 14400,
 };
+const PLOTS_BUF_MAX = 3600; // 1 hour max buffer
+const SPARK_BUF_MAX = 100;
+const SL_BUCKET_MAX = 10;
+const MAX_SOURCES = 6; // tab cap, for performance
 
-// Check for previously saved settings. Init defaults if not found.
-if (window.localStorage.getItem("settings") === null) {
-    window.localStorage.setItem("settings", JSON.stringify({
-        inHEZ: true,
-        displayWindow: "1h",
+// Main-plot trace indices. The raw H/E/Z/Magnitude/Temperature series occupy
+// 0-4; the moving-average overlay series mirror them at 5-9 (see plots.json).
+const RAW_TRACES = [0, 1, 2, 3, 4];
+const FILTER_TRACES = [5, 6, 7, 8, 9];
+// Allowed moving-average window sizes, in seconds (see #filterWindow).
+const FILTER_WINDOWS = [10, 30, 60];
+// Opacity applied to the raw series while the filter overlay is shown, so the
+// smoothed lines read as the primary signal without hiding the raw data.
+const RAW_FADED_OPACITY = 0.25;
+
+// ----------------------------------------------------------------------------
+// Settings (persisted)
+// ----------------------------------------------------------------------------
+// Moving average and time window are shared across all sources; each source
+// (tab) owns its own connection config and coordinate transform.
+
+/** @returns {string} a unique id (falls back when crypto is unavailable) */
+function uid() {
+    if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+    return "s-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+/**
+ * @param {string} [name]
+ * @returns {Source} a blank source with default settings
+ */
+function makeSource(name = "Source 1") {
+    return {
+        id: uid(),
+        name,
+        type: "websocket",
+        websocket: { url: "" },
+        mqtt: { broker: "", topic: "", username: "", password: "" },
         transform: { x: 0, y: 0, z: 0 },
-        // This is future proofing for the tabber system later.
-        sources: [
-            {
-                name: "Untitled",
-                type: "Unknown",
-                url: "",
+    };
+}
+
+/** @returns {DashSettings} */
+function defaultSettings() {
+    const src = makeSource();
+    return {
+        displayWindow: "1h",
+        filter: { enabled: false, windowSec: 60 },
+        sources: [src],
+        activeSourceId: src.id,
+    };
+}
+
+/**
+ * Normalizes older settings shapes (single connection + global transform) into
+ * the sources[] model so existing users keep their saved source.
+ * @param {any} s
+ */
+function migrateSettings(s) {
+    if (!s.filter) {
+        s.filter = { enabled: false, windowSec: 60 };
+    }
+    if (!s.displayWindow) {
+        s.displayWindow = "1h";
+    }
+    const hasSources = Array.isArray(s.sources) && s.sources.length > 0 &&
+        s.sources[0] && s.sources[0].id;
+    if (!hasSources) {
+        const old = s.connection || {};
+        s.sources = [{
+            id: uid(),
+            name: old.name || "Source 1",
+            type: old.type || "websocket",
+            websocket: { url: (old.websocket && old.websocket.url) || "" },
+            mqtt: {
+                broker: (old.mqtt && old.mqtt.broker) || "",
+                topic: (old.mqtt && old.mqtt.topic) || "",
+                username: (old.mqtt && old.mqtt.username) || "",
+                password: (old.mqtt && old.mqtt.password) || "",
             },
-        ],
-    }));
+            transform: s.transform || { x: 0, y: 0, z: 0 },
+        }];
+        s.activeSourceId = s.sources[0].id;
+    }
+    if (!s.activeSourceId || !s.sources.some(x => x.id === s.activeSourceId)) {
+        s.activeSourceId = s.sources[0].id;
+    }
+    // Drop obsolete top-level keys from the pre-tabs model.
+    delete s.connection;
+    delete s.transform;
+    delete s.inHEZ;
 }
 
 /** @type {DashSettings} */
-const settings = JSON.parse(window.localStorage.getItem("settings"));
+let settings;
+try {
+    settings = JSON.parse(window.localStorage.getItem("settings"));
+} catch (e) {
+    settings = null;
+}
+if (!settings) {
+    settings = defaultSettings();
+}
+migrateSettings(settings);
 
 function saveSettings() {
     window.localStorage.setItem("settings", JSON.stringify(settings));
 }
+saveSettings(); // persist the normalized shape
 
-// Load the user's settings
-const timeSelect = document.getElementById("timerange");
-timeSelect.value = settings.displayWindow;
+/** @param {string} id @returns {Source|undefined} */
+function getSource(id) {
+    return settings.sources.find(s => s.id === id);
+}
+/** @returns {Source} */
+function activeSource() {
+    return getSource(settings.activeSourceId);
+}
 
-const rotX = document.getElementById("rotX");
-const rotY = document.getElementById("rotY");
-const rotZ = document.getElementById("rotZ");
-rotX.value = settings.transform.x;
-rotY.value = settings.transform.y;
-rotZ.value = settings.transform.z;
-
-const xDel = document.getElementById("xDelta");
-const yDel = document.getElementById("yDelta");
-const zDel = document.getElementById("zDelta");
-xDel.textContent = rotX.value;
-yDel.textContent = rotY.value;
-zDel.textContent = rotZ.value;
-
-// Repopulate the tabber with the user's data sources
-// const tabs = document.getElementById("tabs");
-// let activeTab = 0;
-// if (settings.sources.length > 0) {
-//     const template = document.getElementById("srcTab");
-//     for (const source of settings.sources) {
-//         const clone = document.importNode(template.content, true);
-//         const tabName = clone.querySelector(".tab-name");
-//         tabName.textContent = source.name;
-//         const tabIco = clone.querySelector(".tab-ico > i");
-//         if (source.type === "Live") {
-//             tabIco.className = "fa-solid fa-server";
-//         } else if (source.type === "Static") {
-//             tabIco.className = "fa-solid fa-file";
-//         }
-//         tabs.appendChild(clone);
-//         console.log(`Loaded ${source.type} source ${source.name}`);
-//     }
-// }
-
-/** @type {Measurement[]} */
-const measurements = [];
+// ----------------------------------------------------------------------------
+// Sessions (runtime state, one per source — not persisted)
+// ----------------------------------------------------------------------------
 
 /**
- *
- * @param {string} markCol
- * @param {string} name
- * @param {number} index
- * @returns {Plotly.Data}
+ * @typedef {object} Session
+ * @prop {string} id
+ * @prop {Measurement[]} measurements
+ * @prop {Measurement[]} sparklines
+ * @prop {Measurement[]} sBucket
+ * @prop {?object} connection live MagConnection instance, or null
+ * @prop {number} status last status code (0-5)
  */
-function makeTrace(markCol, name, index = 1) {
+
+/** @type {Map<string, Session>} */
+const sessions = new Map();
+
+/** @param {Source} source @returns {Session} */
+function makeSession(source) {
     return {
-        type: "scattergl",
-        mode: "lines",
-        marker: { color: markCol },
-        x: [],
-        y: [],
-        line: { width: 2 },
-        hovertemplate: `%{y:.3f}<extra></extra>`,
-        name: name,
-        xaxis: index === 1 ? "x" : `x${index}`,
-        yaxis: index === 1 ? "y" : `y${index}`,
+        id: source.id,
+        measurements: [],
+        sparklines: [],
+        sBucket: [],
+        connection: null,
+        status: 2,
     };
 }
-
-/**
- *
- * @param {number} anchor
- * @returns {Partial<Plotly.LayoutAxis>}
- */
-function configXAxis(anchor) {
-    const xaxis = {
-        type: "date",
-        autorange: false,
-        showgrid: true,
-        gridcolor: "#e5e7eb",
-        gridwidth: 1,
-        zeroline: false,
-        tickformat: "%H:%M:%S",
-        nticks: 8,
-        anchor: anchor === 1 ? "y" : `y${anchor}`,
-        showticklabels: anchor === 5,
-    };
-    if (anchor !== 1) {
-        xaxis.matches = "x";
-    }
-    return xaxis;
+/** @returns {Session} */
+function activeSession() {
+    return sessions.get(settings.activeSourceId);
 }
 
-// Init the graphs for each component
-const xaxis1 = configXAxis(1);
-// xaxis1.rangeselector = {
-//     buttons: [{
-//         step: "second",
-//         stepmode: "backward",
-//         count: 60,
-//         label: "1min",
-//     }, {
-//         step: "second",
-//         stepmode: "backward",
-//         count: 300,
-//         label: "5min",
-//     }, {
-//         step: "minute",
-//         stepmode: "backward",
-//         count: 15,
-//         label: "15min",
-//     }, {
-//         step: "minute",
-//         stepmode: "backward",
-//         count: 60,
-//         label: "1h"
-//     }, {
-//         step: "all",
-//     }],
-// };
-const xaxis5 = configXAxis(5);
-xaxis5.side - "bottom";
-xaxis5.rangeslider = {
-    visible: true,
-    thickness: 0.05,
-};
+for (const src of settings.sources) {
+    sessions.set(src.id, makeSession(src));
+}
+
+// ----------------------------------------------------------------------------
+// Plots
+// ----------------------------------------------------------------------------
 const plotsDiv = document.getElementById("plots");
-const plots = Plotly.newPlot(plotsDiv, [
-    makeTrace("#f00", "H (nT)"),
-    makeTrace("#0f0", "E (nT)", 2),
-    makeTrace("#00f", "Z (nT)", 3),
-    makeTrace("#f0f", "Magnitude (nT)", 4),
-    makeTrace("#ffae00", "Remote (°C)", 5),
-], {
-    template: "plotly_white",
-    margin: { l: 50, r: 0, t: 0, b: 20, pad: 0 },
-    grid: {
-        rows: 5,
-        columns: 1,
-        pattern: "independent",
-        roworder: "top to bottom",
-    },
-    paper_bgcolor: "#fff",
-    plot_bgcolor: "#f7f9fb",
-    hovermode: "x unified",
-    hoversubplots: "all",
-    xaxis: xaxis1,
-    xaxis2: configXAxis(2),
-    xaxis3: configXAxis(3),
-    xaxis4: configXAxis(4),
-    xaxis5: xaxis5,
-    yaxis:  {
-        domain: [0.81, 1.0],
-        anchor: "x",
-    },
-    yaxis2: {
-        domain: [0.61, 0.8],
-        anchor: "x",
-    },
-    yaxis3: {
-        domain: [0.41, 0.6],
-        anchor: "x",
-    },
-    yaxis4: {
-        domain: [0.21, 0.40],
-        anchor: "x",
-    },
-    yaxis5: {
-        domain: [0.1, 0.2],
-        anchor: "x",
-    },
-    legend: {
-        orientation: "h",
-        xanchor: "left",
-        yanchor: "bottom",
-        xref: "paper",
-        yref: "paper",
-        x: 0.5,
-        y: 1.0,
-        width: 1,
-        bgcolor: "transparent",
-    },
-    transition: {
-        duration: 250,
-        easing: "cubic",
-    },
-    uirevision: "true",
-}, {
-    responsive: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ["lasso2d", "select2d"],
-    scrollZoom: true,
-});
+const sparkDiv = document.getElementById("sparklines");
+
 let autofollow = true;
 let updateLock = false;
 
-function addAllTraces() {
-    Plotly.addTraces(plotsDiv, [
-        makeTrace("#f00", "H (nT)"),
-        makeTrace("#0f0", "E (nT)", 2),
-        makeTrace("#00f", "Z (nT)", 3),
-        makeTrace("#f0f", "Magnitude (nT)", 4),
-        makeTrace("#ffae00", "Remote (°C)", 5),
-    ]);
+// Per-source uirevision. Plotly preserves axis ranges, zoom, and the range
+// slider whenever uirevision is unchanged (even across newPlot), which left a
+// previous source's ranges behind when switching tabs. Keying it to the active
+// source resets that state on switch while preserving the user's zoom/pan
+// during live updates within a source.
+// Deep-clone: Plotly writes computed axis ranges back into the layout object it
+// is given, so a shared layout would carry one source's ranges into the next.
+function mainLayout() {
+    const layout = structuredClone(plotsInit.layout);
+    layout.uirevision = settings.activeSourceId;
+    return layout;
+}
+function sparkLayout() {
+    const layout = structuredClone(slInit.layout);
+    layout.uirevision = settings.activeSourceId;
+    return layout;
 }
 
-function deleteAllTraces() {
-    Plotly.deleteTraces(plotsDiv, [0, 1, 2, 3, 4]);
+/**
+ * (Re)attaches the main-plot interaction handlers. Needed after every
+ * Plotly.newPlot, which clears the plot's event registry.
+ */
+function attachPlotHandlers() {
+    if (plotsDiv.removeAllListeners) {
+        plotsDiv.removeAllListeners("plotly_relayout");
+        plotsDiv.removeAllListeners("plotly_doubleclick");
+    }
+    plotsDiv.on("plotly_relayout", ev => {
+        if (!updateLock &&
+            "xaxis.range[0]" in ev &&
+            "xaxis.range[1]" in ev) {
+            autofollow = false;
+        }
+    });
+    plotsDiv.on("plotly_doubleclick", () => {
+        autofollow = true;
+        updateLock = true;
+        updateRange();
+        updateLock = false;
+    });
+}
+
+/**
+ * Draws the main plot from scratch with newPlot (not react) so switching
+ * sources fully clears the previous source's WebGL traces, axis ranges, and
+ * range slider rather than leaving residual rendering behind.
+ * @param {object[]} traces
+ */
+function drawMainPlot(traces) {
+    // purge wipes the stored layout (axis ranges, range slider, WebGL context);
+    // newPlot alone keeps the previous ranges when the new data is empty.
+    Plotly.purge(plotsDiv);
+    Plotly.newPlot(plotsDiv, traces, mainLayout(), plotsInit.config);
+    attachPlotHandlers();
+}
+function drawSparkPlot(traces) {
+    Plotly.purge(sparkDiv);
+    Plotly.newPlot(sparkDiv, traces, sparkLayout(), slInit.config);
+}
+
+drawMainPlot(structuredClone(plotsInit.traces));
+drawSparkPlot(structuredClone(slInit.traces));
+
+/**
+ * Applies the active source's coordinate transform to a measurement's HEZ.
+ * @param {Measurement} m
+ * @returns {Vector} the rotated HEZ vector ready for display
+ */
+function rotatedHEZ(m) {
+    const { x, y, z } = activeSource().transform;
+    return m.HEZ
+        .rotate("x", x, false)
+        .rotate("y", y, false)
+        .rotate("z", z, false);
+}
+
+/** Resets both plots to their initial empty state (full re-init). */
+function resetPlots() {
+    drawMainPlot(structuredClone(plotsInit.traces));
+    drawSparkPlot(structuredClone(slInit.traces));
+}
+
+/**
+ * Recomputes the moving-average overlay (H, E, Z, Magnitude, Temperature) from
+ * the active source's buffer and redraws traces 5-9 in a single restyle.
+ */
+function recomputeFiltered() {
+    const smoothed = movingAverage(
+        activeSession().measurements, settings.filter.windowSec);
+    const x = smoothed.map(m => m.ts);
+    const vectors = smoothed.map(rotatedHEZ);
+    Plotly.restyle(plotsDiv, {
+        x: FILTER_TRACES.map(() => x),
+        y: [
+            vectors.map(v => v[0]),
+            vectors.map(v => v[1]),
+            vectors.map(v => v[2]),
+            vectors.map(v => parseFloat(v.magnitude.toFixed(3))),
+            smoothed.map(m => m.celsius),
+        ],
+    }, FILTER_TRACES);
+}
+
+/**
+ * Shows or hides the moving-average overlay and fades the raw series to match
+ * the current filter setting, without touching the underlying data.
+ */
+function syncFilterVisual() {
+    const on = settings.filter.enabled;
+    Plotly.restyle(plotsDiv,
+        { opacity: on ? RAW_FADED_OPACITY : 1 }, RAW_TRACES);
+    Plotly.restyle(plotsDiv, { visible: on }, FILTER_TRACES);
+}
+
+/** Rebuilds the overlay data (when enabled) and syncs its visibility. */
+function refreshFilter() {
+    if (settings.filter.enabled && activeSession().measurements.length > 0) {
+        recomputeFiltered();
+    }
+    syncFilterVisual();
 }
 
 function updateCoordGraphs() {
-    const { transform: { x: rX, y: rY, z: rZ } } = settings;
-    const vectors = measurements.map(m =>
-        (settings.inHEZ ? m.HEZ : m.XYZ)
-            .rotate("x", rX, false)
-            .rotate("y", rY, false)
-            .rotate("z", rZ, false));
-    // Only the coordinate graphs actually change. The magnitude will remain
-    // the same.
+    const vectors = activeSession().measurements.map(rotatedHEZ);
+    // Only the coordinate graphs actually change; magnitude is rotation-invariant.
     /** @type {[0, 1, 2]} */
     const traces = [0, 1, 2];
     Plotly.restyle(plotsDiv, {
         y: traces.map(t => vectors.map(v => v[t]))
     }, traces);
+    // The smoothed overlay depends on the same rotation, so rebuild it too.
+    if (settings.filter.enabled) {
+        recomputeFiltered();
+    }
 }
 
-// Toggle sidebar
-const sideToggle = document.getElementById("sideToggle");
-sideToggle.addEventListener("click", ev => {
-    sideToggle.classList.toggle("fa-bars");
-    sideToggle.classList.toggle("fa-xmark");
-
-    const sidebar = document.getElementById("config");
-    const [layout] = document.getElementsByClassName("layout");
-
-    // Adjust the layout to account for missing element.
-    if (sideToggle.classList.contains("fa-xmark")) {
-        sidebar.style.display = "block";
-        layout.style.gridTemplateColumns = "300px 1fr 400px";
-    } else {
-        sidebar.style.display = "none";
-        layout.style.gridTemplateColumns = "1fr 400px";
-    }
-    // Resize the plots to match the new container.
-    updateLock = true;
-    Plotly.Plots.resize(plotsDiv);
-    updateLock = false;
-});
-
-// Convert between XYZ and HEZ
-// document.getElementById("inHEZ").addEventListener("click", function(ev) {
-//     inHEZ = this.checked;
-// });
-
-// Set rotation deltas
-// TODO: Add some indication that the rotation isn't saved?
-rotX.addEventListener("input", ev => {
-    xDel.textContent = ev.target.value;
-});
-rotY.addEventListener("input", ev => {
-    yDel.textContent = ev.target.value;
-});
-rotZ.addEventListener("input", ev => {
-    zDel.textContent = ev.target.value;
-});
-document.getElementById("saveRot").addEventListener("click", ev => {
-    settings.transform.x = rotX.value;
-    settings.transform.y = rotY.value;
-    settings.transform.z = rotZ.value;
-    saveSettings();
-    updateCoordGraphs();
-});
-
 function updateRange() {
-    const { ts: latest } = measurements[measurements.length - 1];
+    const ms = activeSession().measurements;
+    if (ms.length === 0) {
+        return;
+    }
+    const { ts: latest } = ms[ms.length - 1];
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
     const latestDiff = new Date(latest.getTime() - (seconds * 1000));
     try {
@@ -317,24 +336,12 @@ function updateRange() {
     } catch (e) {}
 }
 
-timeSelect.addEventListener("change", ev => {
-    const newRange = ev.target.value;
-    settings.displayWindow = newRange;
-    saveSettings();
-    autofollow = true;
-    updateRange();
-});
-
 /**
- *
+ * Appends one reading to the active plots (raw, plus the overlay if enabled).
  * @param {Measurement} measurement
  */
 function extendAllTraces(measurement) {
-    const { transform: { x: rX, y: rY, z: rZ } } = settings;
-    const dispVec = (settings.inHEZ ? measurement.HEZ : measurement.XYZ)
-        .rotate("x", rX, false)
-        .rotate("y", rY, false)
-        .rotate("z", rZ, false);
+    const dispVec = rotatedHEZ(measurement);
     const { ts } = measurement;
     Plotly.extendTraces(plotsDiv, {
         x: [[ts], [ts], [ts], [ts], [ts]],
@@ -345,15 +352,46 @@ function extendAllTraces(measurement) {
             [parseFloat(dispVec.magnitude.toFixed(3))],
             [measurement.celsius],
         ],
-    }, [0, 1, 2, 3, 4]);
+    }, RAW_TRACES);
+
+    // A trailing moving average is causal, so each smoothed point is final once
+    // computed: we can append the newest one rather than rebuilding the series.
+    if (settings.filter.enabled) {
+        const ms = activeSession().measurements;
+        const smoothed = trailingAverageAt(
+            ms, ms.length - 1, settings.filter.windowSec);
+        const filtVec = rotatedHEZ(smoothed);
+        Plotly.extendTraces(plotsDiv, {
+            x: [[ts], [ts], [ts], [ts], [ts]],
+            y: [
+                [filtVec[0]],
+                [filtVec[1]],
+                [filtVec[2]],
+                [parseFloat(filtVec.magnitude.toFixed(3))],
+                [smoothed.celsius],
+            ],
+        }, FILTER_TRACES);
+    }
+}
+
+function updateSparks() {
+    const session = activeSession();
+    while (session.sparklines.length > SPARK_BUF_MAX) {
+        session.sparklines.shift();
+    }
+    const newSlTraces = buildSparklineTraces(session.sparklines);
+    Plotly.react(sparkDiv, newSlTraces, sparkLayout(), slInit.config);
 }
 
 /**
+ * Builds the spreadsheet table row for a measurement, applying the active
+ * source's coordinate transform. The moving-average filter intentionally does
+ * not affect the spreadsheet — it always shows the rotated raw reading.
  * @param {Measurement} measurement
+ * @returns {string} the `<tr>` markup for this measurement
  */
-function addSpreadsheetRow(measurement) {
-    // Reformat the date for the spreadsheet. Specifically, we want this to be
-    // in local time on the client end for their convenience.
+function spreadsheetRowHTML(measurement) {
+    // Local time on the client end, for the operator's convenience.
     const date = new Intl.DateTimeFormat("en-US", {
         hour12: false,
         month: "numeric",
@@ -364,143 +402,744 @@ function addSpreadsheetRow(measurement) {
         second: "2-digit"
     }).format(measurement.ts);
 
-    // Apply coordinate system and transform deltas
-    const dispVector = (settings.inHEZ ? measurement.HEZ : measurement.XYZ)
-        .rotate("x", settings.transform.x, false)
-        .rotate("y", settings.transform.y, false)
-        .rotate("z", settings.transform.z, false);
+    const dispVector = rotatedHEZ(measurement);
 
-    // Add the new row to the top of the table.
-    document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
-        "afterbegin", `
+    return `
         <tr>
             <td>${date}</td>
-            <td>${measurement.celsius.toFixed(2)}</td>
-            <td>${dispVector.magnitude.toFixed(3)}</td>
             <td>${dispVector[0].toFixed(3)}</td>
             <td>${dispVector[1].toFixed(3)}</td>
             <td>${dispVector[2].toFixed(3)}</td>
-        </tr>`);
+            <td>${dispVector.magnitude.toFixed(3)}</td>
+            <td>${measurement.celsius.toFixed(2)}</td>
+        </tr>`;
 }
 
 /**
- * Callback handler for each magnetometer reading.
- * @param {CustomEvent<MagUsbJson>} ev
+ * Prepends a measurement's row to the top of the spreadsheet (newest first).
+ * @param {Measurement} measurement
  */
-function onMagRead(ev) {
-    // Extract the JSON attributes and convert to in-house object. This will
-    // allow us to do common operations much easier.
-    const { detail: { ts, rt: tmp, x, y, z } } = ev;
-    const measurement = new Measurement(ts, tmp, x, y, z);
+function addSpreadsheetRow(measurement) {
+    document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
+        "afterbegin", spreadsheetRowHTML(measurement));
+    // TODO: Remove last row once we're at max buffer size?
+}
 
-    // A zero reading on rt is a host problem, not a dashboard problem. We
-    // should alert the client of the problem and then kill the connection.
-    if (!measurement.celsius &&
-        measurement.XYZ.equals(measurements[measurements.length - 1].XYZ)) {
-        document.dispatchEvent(new CustomEvent("magerror", {
-            detail: {
-                message: "Hardware Error:\n" +
-                "The magnetometer was disconnected from the host. Check the " +
-                "host machine and the magnetometer for faulty cabling. " +
-                "Restart mag-usb after the problem is resolved."
-            },
-        }));
-        return;
-    }
+/** Rebuilds every spreadsheet row from the active source's buffer. */
+function rebuildSpreadsheet() {
+    // measurements run oldest -> newest, but the table shows newest at the top.
+    document.querySelector("#spreadsheet table tbody").innerHTML =
+        activeSession().measurements.map(spreadsheetRowHTML).reverse().join("");
+}
 
-    measurements.push(measurement);
-    addSpreadsheetRow(measurement);
-    extendAllTraces(measurement);
-    if (autofollow) {
-        updateLock = true;
-        updateRange();
-        updateLock = false;
+/**
+ * @param {Measurement} m
+ */
+function updateCurrentTable(m) {
+    const dispVec = rotatedHEZ(m);
+    document.getElementById("h").textContent = dispVec[0].toFixed(3);
+    document.getElementById("e").textContent = dispVec[1].toFixed(3);
+    document.getElementById("z").textContent = dispVec[2].toFixed(3);
+    document.getElementById("mag").textContent = m.HEZ.magnitude.toFixed(3);
+    document.getElementById("temp").textContent = m.celsius.toFixed(2);
+}
+
+// ----------------------------------------------------------------------------
+// Connection status (header indicator)
+// ----------------------------------------------------------------------------
+const statusEl = document.getElementById("status");
+
+/**
+ * Sets the header connection status indicator.
+ * @param {number} s 0 connecting, 1 connected, 2 disconnected,
+ *   3 failed/retrying, 4 file loaded, 5 auth failed
+ * @param {number} [retry=0] retry count, shown for the failed state
+ */
+function setHeaderStatus(s, retry = 0) {
+    const [sText] = statusEl.getElementsByTagName("span");
+    const [ico] = statusEl.getElementsByTagName("i");
+    switch (s) {
+        case 0:
+            sText.textContent = "Connecting";
+            statusEl.className = "wait";
+            ico.className = "fa-solid fa-arrows-rotate";
+            break;
+        case 1:
+            sText.textContent = "Connected";
+            statusEl.className = "success";
+            ico.className = "fa-solid fa-signal";
+            break;
+        case 2:
+            sText.textContent = "Disconnected";
+            statusEl.className = "error";
+            ico.className = "fa-solid fa-circle-xmark";
+            break;
+        case 3:
+            sText.textContent = `Failed (${retry})`;
+            statusEl.className = "warn";
+            ico.className = "fa-solid fa-triangle-exclamation";
+            break;
+        case 4:
+            sText.textContent = "File loaded";
+            statusEl.className = "success";
+            ico.className = "fa-solid fa-file-lines";
+            break;
+        case 5:
+            sText.textContent = "Auth failed";
+            statusEl.className = "error";
+            ico.className = "fa-solid fa-user-lock";
+            break;
     }
 }
 
-document.addEventListener("magread", onMagRead);
-plotsDiv.on("plotly_relayout", ev => {
-    if (!updateLock && (
-        "xaxis.range[0]" in ev &&
-        "xaxis.range[1]" in ev
-    )) {
-        autofollow = false;
-        console.log("autofollow disabled");
+// ----------------------------------------------------------------------------
+// Ingestion + connection routing
+// ----------------------------------------------------------------------------
+
+/**
+ * Buffers one reading into a session (capping the buffers and aggregating the
+ * sparkline bucket). DOM is untouched; the caller renders if it's active.
+ * @param {Session} session
+ * @param {Measurement} m
+ * @returns {boolean} whether a new sparkline aggregate was produced
+ */
+function ingest(session, m) {
+    session.measurements.push(m);
+    while (session.measurements.length > PLOTS_BUF_MAX) {
+        session.measurements.shift();
     }
-});
-plotsDiv.on("plotly_doubleclick", ev => {
+    session.sBucket.push(m);
+    if (session.sBucket.length >= SL_BUCKET_MAX) {
+        session.sparklines.push(reduceBucket(session.sBucket));
+        session.sBucket.length = 0;
+        while (session.sparklines.length > SPARK_BUF_MAX) {
+            session.sparklines.shift();
+        }
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Handles a reading from a given source. Always buffers it; only renders when
+ * the source is the active tab.
+ * @param {string} id source id
+ * @param {MagUsbJson} json
+ */
+function handleReading(id, json) {
+    const session = sessions.get(id);
+    if (!session) {
+        return;
+    }
+    const { ts, rt: tmp, x, y, z } = json;
+    let measurement;
+    try {
+        measurement = new Measurement(ts, tmp, x, y, z);
+    } catch (e) {
+        console.log("Bad reading:", e);
+        return;
+    }
+
+    // A zero reading on rt that repeats the previous field is a host problem,
+    // not a dashboard problem: alert and drop the connection.
+    const last = session.measurements[session.measurements.length - 1];
+    if (!measurement.celsius && last && measurement.XYZ.equals(last.XYZ)) {
+        handleHardwareError(session);
+        return;
+    }
+
+    const newSpark = ingest(session, measurement);
+    if (id === settings.activeSourceId) {
+        addSpreadsheetRow(measurement);
+        updateCurrentTable(measurement);
+        extendAllTraces(measurement);
+        if (newSpark) {
+            updateSparks();
+        }
+        if (autofollow) {
+            updateLock = true;
+            updateRange();
+            updateLock = false;
+        }
+    }
+}
+
+/**
+ * @param {string} id source id
+ * @param {number} code status code
+ * @param {number} [retry]
+ */
+function handleStatus(id, code, retry) {
+    const session = sessions.get(id);
+    if (session) {
+        session.status = code;
+    }
+    if (id === settings.activeSourceId) {
+        setHeaderStatus(code, retry);
+    }
+    updateTabStatus(id, code);
+}
+
+/** @param {Session} session */
+function handleHardwareError(session) {
+    alert(
+        "Hardware Error:\n" +
+        "The magnetometer was disconnected from the host. Check the host " +
+        "machine and the magnetometer for faulty cabling. Restart mag-usb " +
+        "after the problem is resolved.");
+    if (session.connection) {
+        session.connection.disconnect();
+    }
+}
+
+/** @param {string} id @returns {{onReading: function, onStatus: function}} */
+function connectionHandlers(id) {
+    return {
+        onReading: json => handleReading(id, json),
+        onStatus: (code, retry) => handleStatus(id, code, retry),
+    };
+}
+
+/**
+ * @param {Source} src
+ * @returns {boolean} whether the source has enough config to connect live
+ */
+function isConfigured(src) {
+    if (src.type === "websocket") {
+        return isValidWsUrl(src.websocket.url);
+    }
+    if (src.type === "mqtt") {
+        return isValidWsUrl(src.mqtt.broker) && !!src.mqtt.topic;
+    }
+    return false; // file: no live transport
+}
+
+/**
+ * Opens (or reopens) the live transport for a session's source. No-op for file
+ * sources or sources that aren't configured yet.
+ * @param {Session} session
+ */
+function connectSession(session) {
+    const src = getSource(session.id);
+    if (!src || !isConfigured(src)) {
+        if (session.id === settings.activeSourceId) {
+            setHeaderStatus(session.status);
+        }
+        return;
+    }
+    if (session.connection) {
+        session.connection.disconnect();
+    }
+    session.connection = window.MagConnection.create(
+        src, connectionHandlers(session.id));
+    session.connection.connect();
+}
+
+/** Clears the shared view (spreadsheet + plots) for the active source. */
+function clearActiveView() {
+    document.querySelector("#spreadsheet table tbody").innerHTML = "";
+    resetPlots();
+    // resetPlots() restores the overlay traces to their hidden default, so
+    // re-apply the fade/visibility that matches the current filter setting.
+    syncFilterVisual();
+}
+
+/**
+ * Empties a session's buffers (e.g. before a fresh connection). Also clears the
+ * shared view when the session is active.
+ * @param {Session} session
+ */
+function clearSession(session) {
+    session.measurements.length = 0;
+    session.sparklines.length = 0;
+    session.sBucket.length = 0;
+    if (session.id === settings.activeSourceId) {
+        clearActiveView();
+    }
+}
+
+/** Renders the full active session into the shared view (used on tab switch). */
+function renderActive() {
+    const session = activeSession();
+    const ms = session.measurements;
+
+    resetPlots();
+    document.querySelector("#spreadsheet table tbody").innerHTML = "";
+
+    if (ms.length > 0) {
+        const times = ms.map(m => m.ts);
+        const vecs = ms.map(rotatedHEZ);
+        Plotly.update(plotsDiv, {
+            x: [times, times, times, times, times],
+            y: [
+                vecs.map(v => v[0]),
+                vecs.map(v => v[1]),
+                vecs.map(v => v[2]),
+                vecs.map(v => parseFloat(v.magnitude.toFixed(3))),
+                ms.map(m => m.celsius),
+            ],
+        }, {}, RAW_TRACES);
+        rebuildSpreadsheet();
+        updateCurrentTable(ms[ms.length - 1]);
+    } else {
+        document.getElementById("h").textContent = "-";
+        document.getElementById("e").textContent = "-";
+        document.getElementById("z").textContent = "-";
+        document.getElementById("mag").textContent = "-";
+        document.getElementById("temp").textContent = "-";
+    }
+    refreshFilter();
+    if (session.sparklines.length > 0) {
+        updateSparks();
+    }
+    setHeaderStatus(session.status);
     autofollow = true;
     updateLock = true;
     updateRange();
     updateLock = false;
-});
+}
 
-// Reset the graphs and clear the spreadsheet
-document.addEventListener("magclose", ev => {
-    document.querySelector("#spreadsheet table tbody").innerHTML = "";
-    deleteAllTraces();
-    addAllTraces();
-    measurements.length = 0;
-});
-
-// JSONL File upload
-document.getElementById("saveLog").addEventListener("click", ev => {
-    /** @type {HTMLInputElement} */
-    const uploader = document.getElementById("logfile");
-    if (uploader.files.length === 0) {
-        alert("Missing .log file.");
-        return;
-    }
-    console.log(uploader.files[0].type);
-    uploader.files[0].text()
+/**
+ * Loads a JSONL .log file into the active session, replacing its buffer.
+ * @param {File} file the .log file selected by the user
+ * @returns {Promise<void>} resolves once the plot is updated
+ */
+function loadLogFile(file) {
+    return file.text()
         .then(text => text.trim().split("\n"))
         .then(lines => {
             /** @type {Measurement[]} */
             const logs = [];
-
             for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
                 try {
                     /** @type {MagUsbJson} */
-                    const json = JSON.parse(line);
-                    const m = new Measurement(
+                    const json = JSON.parse(lines[i]);
+                    logs[i] = new Measurement(
                         json.ts, json.rt, json.x, json.y, json.z);
-                    logs[i] = m;
                 } catch (err) {
                     console.log(err);
                     throw new Error(
-                        `Cannot load file. Line ${i+1} is malformed.`);
+                        `Cannot load file. Line ${i + 1} is malformed.`);
                 }
             }
-            console.log(`Loaded ${uploader.files[0].name}`);
+            console.log(`Loaded ${file.name}`);
             return logs;
-        })
-        .then(logs => {
-            measurements.length = 0;
-            measurements.push(...logs);
+        }).then(logs => {
+            const session = activeSession();
+            session.measurements = logs;
+            session.sparklines.length = 0;
+            session.sBucket.length = 0;
+
+            resetPlots();
+            document.querySelector("#spreadsheet table tbody").innerHTML = "";
             const times = logs.map(({ ts }) => ts);
+            const vecs = logs.map(rotatedHEZ);
             Plotly.update(plotsDiv, {
                 x: [times, times, times, times, times],
                 y: [
-                    logs.map(({ HEZ }) => HEZ[0]),
-                    logs.map(({ HEZ }) => HEZ[1]),
-                    logs.map(({ HEZ }) => HEZ[2]),
-                    logs.map(({ HEZ }) => HEZ.magnitude),
+                    vecs.map(v => v[0]),
+                    vecs.map(v => v[1]),
+                    vecs.map(v => v[2]),
+                    vecs.map(v => parseFloat(v.magnitude.toFixed(3))),
                     logs.map(m => m.celsius),
                 ]
             }, {
                 "xaxis.range": [logs[0].ts, logs[logs.length - 1].ts],
-            }, [0, 1, 2, 3, 4])
-            // This currently lags the client. Need a different approach!
-            // for (const log of logs) {
-            //     addSpreadsheetRow(log);
-            // }
-        })
-        .catch(err => {
-            console.error(err);
-            alert(err.message);
+            }, RAW_TRACES);
+            refreshFilter();
+            session.status = 4;
+            setHeaderStatus(4);
         });
+}
+
+// ----------------------------------------------------------------------------
+// Sidebar: toggle
+// ----------------------------------------------------------------------------
+const sideToggle = document.getElementById("sideToggle");
+sideToggle.addEventListener("click", () => {
+    const sidebar = document.getElementById("config");
+    if (sideToggle.classList.contains("fa-xmark")) {
+        sidebar.style.transform = "translateX(-100%)";
+    } else {
+        sidebar.style.transform = "translateX(0)";
+    }
+    sideToggle.classList.toggle("fa-bars");
+    sideToggle.classList.toggle("fa-xmark");
 });
+
+// ----------------------------------------------------------------------------
+// Processing: rotation (per source)
+// ----------------------------------------------------------------------------
+const rotX = document.getElementById("rotX");
+const rotY = document.getElementById("rotY");
+const rotZ = document.getElementById("rotZ");
+const xDel = document.getElementById("xDelta");
+const yDel = document.getElementById("yDelta");
+const zDel = document.getElementById("zDelta");
+
+/** Loads a source's transform into the rotation sliders. @param {Source} src */
+function loadRotation(src) {
+    rotX.value = src.transform.x;
+    rotY.value = src.transform.y;
+    rotZ.value = src.transform.z;
+    xDel.textContent = rotX.value;
+    yDel.textContent = rotY.value;
+    zDel.textContent = rotZ.value;
+}
+
+rotX.addEventListener("input", ev => { xDel.textContent = ev.target.value; });
+rotY.addEventListener("input", ev => { yDel.textContent = ev.target.value; });
+rotZ.addEventListener("input", ev => { zDel.textContent = ev.target.value; });
+
+document.getElementById("saveRot").addEventListener("click", () => {
+    const src = activeSource();
+    src.transform.x = parseInt(rotX.value, 10);
+    src.transform.y = parseInt(rotY.value, 10);
+    src.transform.z = parseInt(rotZ.value, 10);
+    saveSettings();
+    updateCoordGraphs();
+    rebuildSpreadsheet();
+});
+
+// ----------------------------------------------------------------------------
+// Processing: moving-average filter (shared)
+// ----------------------------------------------------------------------------
+const filterGroup = document.getElementById("filterGroup");
+const filterWindow = document.getElementById("filterWindow");
+const filterOff = filterGroup.querySelector('button[name="off"]');
+const filterOn = filterGroup.querySelector('button[name="on"]');
+
+filterWindow.value = String(settings.filter.windowSec);
+filterOff.disabled = !settings.filter.enabled;
+filterOn.disabled = settings.filter.enabled;
+
+/** @param {boolean} enabled */
+function setFilterEnabled(enabled) {
+    settings.filter.enabled = enabled;
+    saveSettings();
+    filterOff.disabled = !enabled;
+    filterOn.disabled = enabled;
+    refreshFilter();
+}
+
+filterOff.addEventListener("click", () => setFilterEnabled(false));
+filterOn.addEventListener("click", () => setFilterEnabled(true));
+
+filterWindow.addEventListener("change", ev => {
+    const windowSec = parseInt(ev.target.value, 10);
+    if (!FILTER_WINDOWS.includes(windowSec)) {
+        return;
+    }
+    settings.filter.windowSec = windowSec;
+    saveSettings();
+    if (settings.filter.enabled) {
+        recomputeFiltered();
+    }
+});
+
+// ----------------------------------------------------------------------------
+// Display: time window (shared)
+// ----------------------------------------------------------------------------
+const timeSelect = document.getElementById("timerange");
+timeSelect.value = settings.displayWindow;
+timeSelect.addEventListener("change", ev => {
+    settings.displayWindow = ev.target.value;
+    saveSettings();
+    autofollow = true;
+    updateRange();
+});
+
+// ----------------------------------------------------------------------------
+// Connection panel
+// ----------------------------------------------------------------------------
+const srcName = document.getElementById("srcName");
+const connType = document.getElementById("connType");
+const wsUrl = document.getElementById("wsUrl");
+const wsUrlErr = document.getElementById("wsUrlErr");
+const mqttBroker = document.getElementById("mqttBroker");
+const mqttTopic = document.getElementById("mqttTopic");
+const mqttUser = document.getElementById("mqttUser");
+const mqttPass = document.getElementById("mqttPass");
+const mqttBrokerErr = document.getElementById("mqttBrokerErr");
+const mqttTopicErr = document.getElementById("mqttTopicErr");
+const logfile = document.getElementById("logfile");
+const fileErr = document.getElementById("fileErr");
+const connectBtn = document.getElementById("connectBtn");
+const typeButtons = [...connType.querySelectorAll("button")];
+
+/**
+ * Shows only the fields for the given source type and marks its button active.
+ * @param {string} type "websocket" | "mqtt" | "file"
+ */
+function showTypeFields(type) {
+    document.querySelectorAll("#config .type-fields").forEach(el => {
+        el.hidden = el.dataset.type !== type;
+    });
+    typeButtons.forEach(b => { b.disabled = b.name === type; });
+}
+
+function clearConnErrors() {
+    wsUrlErr.textContent = "";
+    mqttBrokerErr.textContent = "";
+    mqttTopicErr.textContent = "";
+    fileErr.textContent = "";
+}
+
+/** Loads a source's connection config into the panel. @param {Source} src */
+function loadConnForm(src) {
+    srcName.value = src.name ?? "";
+    wsUrl.value = src.websocket?.url ?? "";
+    mqttBroker.value = src.mqtt?.broker ?? "";
+    mqttTopic.value = src.mqtt?.topic ?? "";
+    mqttUser.value = src.mqtt?.username ?? "";
+    mqttPass.value = src.mqtt?.password ?? "";
+    clearConnErrors();
+    showTypeFields(src.type ?? "websocket");
+}
+
+// Switch source type (changes the active source's type + visible fields).
+typeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+        activeSource().type = btn.name;
+        saveSettings();
+        clearConnErrors();
+        showTypeFields(btn.name);
+    });
+});
+
+wsUrl.addEventListener("input", () => { wsUrlErr.textContent = ""; });
+mqttBroker.addEventListener("input", () => { mqttBrokerErr.textContent = ""; });
+mqttTopic.addEventListener("input", () => { mqttTopicErr.textContent = ""; });
+logfile.addEventListener("change", () => { fileErr.textContent = ""; });
+
+/**
+ * @param {string} url
+ * @returns {boolean} whether `url` is a valid ws:// or wss:// URL
+ */
+function isValidWsUrl(url) {
+    try {
+        const u = new URL(url);
+        return u.protocol === "ws:" || u.protocol === "wss:";
+    } catch {
+        return false;
+    }
+}
+
+connectBtn.addEventListener("click", () => {
+    const src = activeSource();
+    // Persist the current form values into the active source.
+    src.name = srcName.value.trim();
+    src.websocket.url = wsUrl.value.trim();
+    src.mqtt = {
+        broker: mqttBroker.value.trim(),
+        topic: mqttTopic.value.trim(),
+        username: mqttUser.value,
+        password: mqttPass.value,
+    };
+
+    const session = activeSession();
+
+    if (src.type === "websocket") {
+        if (!isValidWsUrl(src.websocket.url)) {
+            wsUrlErr.textContent = "Enter a ws:// or wss:// URL.";
+            return;
+        }
+        saveSettings();
+        clearSession(session);
+        connectSession(session);
+    } else if (src.type === "mqtt") {
+        let ok = true;
+        if (!isValidWsUrl(src.mqtt.broker)) {
+            mqttBrokerErr.textContent = "Enter a ws:// or wss:// broker URL.";
+            ok = false;
+        }
+        if (!src.mqtt.topic) {
+            mqttTopicErr.textContent = "Enter a topic.";
+            ok = false;
+        }
+        if (!ok) {
+            return;
+        }
+        saveSettings();
+        clearSession(session);
+        connectSession(session);
+    } else if (src.type === "file") {
+        if (!logfile.files || logfile.files.length === 0) {
+            fileErr.textContent = "Choose a .log file first.";
+            return;
+        }
+        saveSettings();
+        if (session.connection) {
+            session.connection.disconnect();
+            session.connection = null;
+        }
+        loadLogFile(logfile.files[0]).catch(err => {
+            console.error(err);
+            fileErr.textContent = err.message;
+        });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// Collapsible panels
+// ----------------------------------------------------------------------------
+document.querySelectorAll("#config .panel-header").forEach(header => {
+    header.addEventListener("click", () => {
+        const panel = header.closest(".panel");
+        panel.dataset.collapsed = String(panel.dataset.collapsed !== "true");
+    });
+});
+
+// ----------------------------------------------------------------------------
+// Tabs (one per source)
+// ----------------------------------------------------------------------------
+const tabsEl = document.getElementById("tabs");
+const addTabBtn = document.getElementById("addTab");
+
+/** @param {number} code status code @returns {string} CSS class for the dot */
+function statusClass(code) {
+    switch (code) {
+        case 0: return "s-connecting";
+        case 1: case 4: return "s-connected";
+        case 3: return "s-failed";
+        default: return "s-disconnected"; // 2 disconnected, 5 auth failed
+    }
+}
+
+/** Updates just one tab's status dot. @param {string} id @param {number} code */
+function updateTabStatus(id, code) {
+    const dot = tabsEl.querySelector(`.tab[data-id="${id}"] .tab-status`);
+    if (dot) {
+        dot.className = "tab-status " + statusClass(code);
+    }
+}
+
+/** Rebuilds the tab strip from settings.sources. */
+function renderTabs() {
+    tabsEl.innerHTML = "";
+    for (const src of settings.sources) {
+        const session = sessions.get(src.id);
+        const tab = document.createElement("div");
+        tab.className = "tab" +
+            (src.id === settings.activeSourceId ? " active" : "");
+        tab.dataset.id = src.id;
+
+        const dot = document.createElement("span");
+        dot.className = "tab-status " + statusClass(session ? session.status : 2);
+        tab.appendChild(dot);
+
+        const name = document.createElement("span");
+        name.className = "tab-name";
+        name.textContent = src.name || "Untitled";
+        tab.appendChild(name);
+
+        const close = document.createElement("i");
+        close.className = "tab-close fa-solid fa-xmark";
+        close.title = "Close source";
+        close.addEventListener("click", ev => {
+            ev.stopPropagation();
+            closeTab(src.id);
+        });
+        tab.appendChild(close);
+
+        tab.addEventListener("click", () => switchTab(src.id));
+        tabsEl.appendChild(tab);
+    }
+    addTabBtn.disabled = settings.sources.length >= MAX_SOURCES;
+}
+
+/** Opens the config sidebar (used when adding a source to configure). */
+function openSidebar() {
+    document.getElementById("config").style.transform = "translateX(0)";
+    sideToggle.classList.remove("fa-bars");
+    sideToggle.classList.add("fa-xmark");
+}
+
+/** Switches the UI to a different source. @param {string} id */
+function switchTab(id) {
+    if (id === settings.activeSourceId || !sessions.has(id)) {
+        return;
+    }
+    settings.activeSourceId = id;
+    saveSettings();
+    const src = activeSource();
+    loadConnForm(src);
+    loadRotation(src);
+    renderActive();
+    renderTabs();
+}
+
+/** Adds a new, unconfigured source and switches to it. */
+function addTab() {
+    if (settings.sources.length >= MAX_SOURCES) {
+        return;
+    }
+    const src = makeSource(`Source ${settings.sources.length + 1}`);
+    settings.sources.push(src);
+    sessions.set(src.id, makeSession(src));
+    settings.activeSourceId = src.id;
+    saveSettings();
+    loadConnForm(src);
+    loadRotation(src);
+    renderActive();
+    renderTabs();
+    openSidebar();
+    srcName.focus();
+}
+
+/** Closes a source, its connection, and its session. @param {string} id */
+function closeTab(id) {
+    const session = sessions.get(id);
+    if (session && session.connection) {
+        session.connection.disconnect();
+    }
+    sessions.delete(id);
+    const idx = settings.sources.findIndex(s => s.id === id);
+    if (idx !== -1) {
+        settings.sources.splice(idx, 1);
+    }
+
+    // Never leave zero tabs.
+    if (settings.sources.length === 0) {
+        const src = makeSource("Source 1");
+        settings.sources.push(src);
+        sessions.set(src.id, makeSession(src));
+        settings.activeSourceId = src.id;
+    } else if (id === settings.activeSourceId) {
+        settings.activeSourceId =
+            settings.sources[Math.max(0, idx - 1)].id;
+    }
+
+    saveSettings();
+    const src = activeSource();
+    loadConnForm(src);
+    loadRotation(src);
+    renderActive();
+    renderTabs();
+}
+
+addTabBtn.addEventListener("click", addTab);
+
+// Live-rename the active tab as the source name is edited.
+srcName.addEventListener("input", () => {
+    activeSource().name = srcName.value;
+    const label = tabsEl.querySelector(
+        `.tab[data-id="${settings.activeSourceId}"] .tab-name`);
+    if (label) {
+        label.textContent = srcName.value || "Untitled";
+    }
+});
+
+// ----------------------------------------------------------------------------
+// Init: load the active source into the UI and connect saved sources.
+// ----------------------------------------------------------------------------
+loadConnForm(activeSource());
+loadRotation(activeSource());
+refreshFilter();
+renderTabs();
+for (const src of settings.sources) {
+    connectSession(sessions.get(src.id));
+}
 
 /**
  * @typedef {object} MagUsbJson
@@ -512,19 +1151,19 @@ document.getElementById("saveLog").addEventListener("click", ev => {
  */
 
 /**
- * @typedef {object} DashSettings
- * @prop {boolean} inHEZ
- * @prop {string} displayWindow
- * @prop {object} transform
- * @prop {number} transform.x
- * @prop {number} transform.y
- * @prop {number} transform.z
- * @prop {DataSource[]} sources
+ * @typedef {object} Source
+ * @prop {string} id
+ * @prop {string} name
+ * @prop {"websocket"|"mqtt"|"file"} type
+ * @prop {{url: string}} websocket
+ * @prop {{broker: string, topic: string, username: string, password: string}} mqtt
+ * @prop {{x: number, y: number, z: number}} transform
  */
 
 /**
- * @typedef {object} DataSource
- * @prop {string} name
- * @prop {"Live"|"Static"|"Unknown"} type
- * @prop {string} url
+ * @typedef {object} DashSettings
+ * @prop {string} displayWindow
+ * @prop {{enabled: boolean, windowSec: number}} filter
+ * @prop {Source[]} sources
+ * @prop {string} activeSourceId
  */
