@@ -10,8 +10,8 @@ const timeRanges = {
     "1m": 60,
     "5m": 300,
     "15m": 900,
+    "30m": 1800,
     "1h": 3600,
-    // "4h": 14400,
 };
 const PLOTS_BUF_MAX = 3600; // 1 hour max buffer
 const SPARK_BUF_MAX = 180;
@@ -66,7 +66,7 @@ function makeSource(name = "Source 1") {
 function defaultSettings() {
     const src = makeSource();
     return {
-        displayWindow: "1h",
+        displayWindow: "15m",
         dBdt: false,
         theme: "system",
         filter: { enabled: false, windowSec: 60 },
@@ -1246,28 +1246,17 @@ function loadDeltaB(src) {
 // ----------------------------------------------------------------------------
 // Processing: moving-average filter (shared)
 // ----------------------------------------------------------------------------
-const filterGroup = document.getElementById("filterGroup");
+const filter = document.getElementById("filter");
 const filterWindow = document.getElementById("filterWindow");
-const filterOff = filterGroup.querySelector('button[name="off"]');
-const filterOn = filterGroup.querySelector('button[name="on"]');
 
+filter.checked = settings.filter.enabled;
 filterWindow.value = String(settings.filter.windowSec);
-filterOff.disabled = !settings.filter.enabled;
-filterOn.disabled = settings.filter.enabled;
 
-/**
- * @param {boolean} enabled
- */
-function setFilterEnabled(enabled) {
-    settings.filter.enabled = enabled;
+filter.addEventListener("change", ev => {
+    settings.filter.enabled = ev.target.checked;
     saveSettings();
-    filterOff.disabled = !enabled;
-    filterOn.disabled = enabled;
     refreshFilter();
-}
-
-filterOff.addEventListener("click", () => setFilterEnabled(false));
-filterOn.addEventListener("click", () => setFilterEnabled(true));
+});
 
 filterWindow.addEventListener("change", ev => {
     const windowSec = parseInt(ev.target.value, 10);
