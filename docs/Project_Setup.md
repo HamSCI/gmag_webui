@@ -22,7 +22,7 @@ will be assuming the hardware used is a traditional setup, meaning:
 For the host (and hardware):
 
 * The host's operating system can be any Linux distribution or macOS.
-  * Windows is unsupported. Raspberry Pis are unsupported.
+  * Windows is unsupported.
   * For this guide, we will assume the host is running Linux.
     * A separate, but comprehensive guide for running on macOS can be found
       [here](/docs/macOS_Setup.md).
@@ -32,7 +32,7 @@ For the host (and hardware):
 * Pololu Isolated USB-to-I²C Adapter (products 5396 or 5397)
   * The recommended adapter is the Pi Eliminator, which can be purchased from
     [TAPR](https://tapr.org/product/pi-eliminator/).
-* I²C cable
+* RJ45 cable
   * A small length cable is fine for testing connections, but generally, a
     longer cable is more suitable in practical application (~100 meters)
 * Male-to-Male USB-C cable
@@ -41,7 +41,7 @@ For the client:
 
 * The client can run any operating system.
   * Docker Desktop is recommended for running the dashboard.
-  * Deno can also be installed directly
+  * Deno can also be installed directly.
 
 ## Host Setup
 
@@ -112,6 +112,18 @@ Clone this repository with `git`:
 
 ```bash
 git clone https://github.com/HamSCI/gmag_webui
+```
+
+Unzip the archive containing Font Awesome. Some parts of the dashboard will not
+run correctly without it.
+
+If your client happens to be Linux or the same machine as the host, you will
+need the "unzip" package:
+
+```bash
+sudo apt-get install -y unzip
+cd gmag_webui/vendor
+unzip fontawesome-free-7.1.0-web.zip
 ```
 
 Navigate to the project's root directory. Run the project by creating a Docker

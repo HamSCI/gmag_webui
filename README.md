@@ -47,7 +47,7 @@ for Windows or macOS clients. The project is run through a Deno container.
 
 ## Usage
 
-In the vendor folder, unzip the archive containing Font Awesome.
+In the project's vendor folder, unzip the archive containing Font Awesome.
 
 In a CLI, navigate to the project's root directory. Start the dashboard with
 Deno:

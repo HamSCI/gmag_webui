@@ -42,6 +42,8 @@ must be reuploaded to the dashboard each refresh.
 The order of operations these are applied in is rotations first using right
 hand rule, then subtract delta-B from the result.
 
+Processing settings are saved per source.
+
 ## Display
 
 * **Time Window**: The time range to display on the main plots. Options are
@@ -51,3 +53,5 @@ hand rule, then subtract delta-B from the result.
 * **Moving Average**: Displays a denoised average line over the raw data.
   The time window can be set as 10 seconds, 30 seconds, or 60 seconds. A high
   time window increases the intensity of the denoising.
+
+Display settings are saved globally per browser.
