@@ -159,4 +159,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `css/index.css` (`.layout` 3-column grid drawer where the config spacer constricts the plots; `main`/`.right-column` grid columns; `@media (min-width: 901px) and (max-width: 1300px)` block — data column 350px, Current Reading + spreadsheet text scaling, icon-only export buttons, trimmed cell padding; `font-size` transitions on `.cell-value` and `#spreadsheet`), `index.html` (export button labels wrapped in `.btn-label` spans with `title` tooltips), `js/index.js` (`setSidebarOpen()` helper toggling `.config-open`; Plotly re-fit on the layout `transitionend`)
 - **Nature of Contribution**: Code generation and edit (CSS/HTML/JS)
 - **Human Review Status**: Reviewed and verified (headless WebKit + Chromium layout checks at portrait/landscape widths — drawer constricts plots with y-axis visible, no spreadsheet overflow at 1194px, portrait unaffected; 28/28 tests pass)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: e653760
