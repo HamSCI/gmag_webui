@@ -160,3 +160,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation and edit (CSS/HTML/JS)
 - **Human Review Status**: Reviewed and verified (headless WebKit + Chromium layout checks at portrait/landscape widths — drawer constricts plots with y-axis visible, no spreadsheet overflow at 1194px, portrait unaffected; 28/28 tests pass)
 - **Git Hash**: e653760
+
+## [2026-07-17 16:59 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8 (1M context)
+- **Session Purpose**: Re-add the deploy/ tooling to the repo without the out-of-scope MQTT bridge: the gmag-webui dashboard systemd unit template, a git-based auto-update mechanism (timer + oneshot service + script that fetches origin and reset --hard + restarts the dashboard on new commits), and an install.sh that auto-resolves the service user/home/repo path and renders the templates. Supersedes the earlier full deploy commit 352e86b, which was reverted (deb1dfb) because it bundled the MQTT bridge -- a host-infra concern out of scope for this repo.
+- **Sections/Files Affected**: deploy/ -- install.sh; gmag-webui.service.in, gmag-webui-update.service.in (templates); gmag-webui-update.timer; gmag-webui-update.sh; README.md
+- **Nature of Contribution**: Code generation (deployment tooling / infrastructure-as-code)
+- **Human Review Status**: Reviewed and verified (no mqtt/bridge references; install.sh bash -n clean and render-tested for a sample user; auto-update tested live on host)
+- **Git Hash**: [fill in after committing]
