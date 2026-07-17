@@ -167,4 +167,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: new deploy/ folder — install.sh; gmag-webui.service.in, ws-mqtt-bridge.service.in, gmag-webui-update.service.in (templates); gmag-webui-update.timer; gmag-webui-update.sh; mag_mqtt.py; README.md
 - **Nature of Contribution**: Code generation (deployment tooling / infrastructure-as-code)
 - **Human Review Status**: Reviewed and verified (auto-update installed + tested on host: no-op when in sync, no restart; installer render-tested for a sample user; scripts bash -n clean; no hardcoded username)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 352e86b
