@@ -175,4 +175,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: deploy/install.sh, deploy/gmag-webui-update.sh (file mode 0644 -> 0755)
 - **Nature of Contribution**: Bug fix (file permissions)
 - **Human Review Status**: Reviewed and verified (git index now shows 100755 for both)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: e22a7cc
