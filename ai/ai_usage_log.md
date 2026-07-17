@@ -160,3 +160,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation and edit (CSS/HTML/JS)
 - **Human Review Status**: Reviewed and verified (headless WebKit + Chromium layout checks at portrait/landscape widths — drawer constricts plots with y-axis visible, no spreadsheet overflow at 1194px, portrait unaffected; 28/28 tests pass)
 - **Git Hash**: e653760
+
+## [2026-07-17 16:34 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8 (1M context)
+- **Session Purpose**: Add deployment artifacts under deploy/ so the host services are reproducible from the repo: templated systemd units (gmag-webui dashboard, ws-mqtt-bridge) with placeholder substitution, an install.sh that auto-resolves the service user/home/repo path and installs the Python deps, the mag-usb WebSocket->MQTT bridge script (mag_mqtt.py), and a git-based auto-update mechanism (gmag-webui-update .sh/.service.in/.timer) that fetches origin and reset --hard + restarts the dashboard on new commits.
+- **Sections/Files Affected**: new deploy/ folder — install.sh; gmag-webui.service.in, ws-mqtt-bridge.service.in, gmag-webui-update.service.in (templates); gmag-webui-update.timer; gmag-webui-update.sh; mag_mqtt.py; README.md
+- **Nature of Contribution**: Code generation (deployment tooling / infrastructure-as-code)
+- **Human Review Status**: Reviewed and verified (auto-update installed + tested on host: no-op when in sync, no restart; installer render-tested for a sample user; scripts bash -n clean; no hardcoded username)
+- **Git Hash**: [fill in after committing]
