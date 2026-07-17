@@ -168,3 +168,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (deployment tooling / infrastructure-as-code)
 - **Human Review Status**: Reviewed and verified (no mqtt/bridge references; install.sh bash -n clean and render-tested for a sample user; auto-update tested live on host)
 - **Git Hash**: 946b121
+
+## [2026-07-17 17:14 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8 (1M context)
+- **Session Purpose**: Fix deploy/install.sh and deploy/gmag-webui-update.sh being committed without the executable bit (mode 0644), which made `sudo .../deploy/install.sh` fail with "command not found". Set both to mode 0755.
+- **Sections/Files Affected**: deploy/install.sh, deploy/gmag-webui-update.sh (file mode 0644 -> 0755)
+- **Nature of Contribution**: Bug fix (file permissions)
+- **Human Review Status**: Reviewed and verified (git index now shows 100755 for both)
+- **Git Hash**: [fill in after committing]
