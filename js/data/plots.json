@@ -253,7 +253,8 @@
         "displaylogo": false,
         "modeBarButtonsToRemove": [
             "lasso2d",
-            "select2d"
+            "select2d",
+            "autoscale2d"
         ],
         "scrollZoom": true
     }
