@@ -639,6 +639,87 @@ const spreadsheetBody = document.querySelector("#spreadsheet table tbody");
 const ROW_OVERSCAN = 8;
 let rowHeight = 0;
 
+// ---- Spreadsheet sorting ----------------------------------------------------
+// The table defaults to newest-first (time descending), which the virtualization
+// renders directly via idx = n-1-d without materializing an order. Clicking a
+// column header sorts by that column: we build an explicit permutation
+// (display position -> measurements index) once and cache it, rebuilding only
+// when the data, view settings, or sort change — never on every scroll frame.
+const sortState = { col: "time", dir: "desc" };
+let sortOrder = null;       // cached permutation for non-default sorts
+let sortOrderValid = false; // false => rebuild on next render
+
+/** Marks the cached sort order stale (data/settings/sort changed). */
+function invalidateSortOrder() {
+    sortOrderValid = false;
+}
+
+/** Whether the sort is the default newest-first (no permutation needed). */
+function isDefaultSort() {
+    return sortState.col === "time" && sortState.dir === "desc";
+}
+
+/**
+ * The sortable value for measurement index `i` under the active column, in the
+ * same display space as the rendered cells (rotation + delta-B). Returns NaN
+ * where undefined (e.g. dB/dt of the first reading), which sorts to the end.
+ * @param {Measurement[]} ms @param {number} i @returns {number}
+ */
+function sortValueAt(ms, i) {
+    switch (sortState.col) {
+        case "h": return displayHEZ(ms[i])[0];
+        case "e": return displayHEZ(ms[i])[1];
+        case "z": return displayHEZ(ms[i])[2];
+        case "mag": return displayHEZ(ms[i]).magnitude;
+        case "temp": return ms[i].celsius;
+        case "dbdt": return i > 0 ? dBdtValue(ms[i], ms[i - 1]) : NaN;
+        default: return ms[i].ts.getTime();   // "time"
+    }
+}
+
+/**
+ * Builds the display-position -> measurements-index permutation for the active
+ * sort. Stable (ties keep chronological order); NaN keys sort last in either
+ * direction. Keys are precomputed so displayHEZ/dBdt run once per row.
+ * @param {Measurement[]} ms @param {number} n @returns {number[]}
+ */
+function buildSortOrder(ms, n) {
+    const keys = new Array(n);
+    const order = new Array(n);
+    for (let i = 0; i < n; i++) {
+        keys[i] = sortValueAt(ms, i);
+        order[i] = i;
+    }
+    const sign = sortState.dir === "asc" ? 1 : -1;
+    order.sort((a, b) => {
+        const ka = keys[a], kb = keys[b];
+        const aNan = Number.isNaN(ka), bNan = Number.isNaN(kb);
+        if (aNan || bNan) {
+            return aNan === bNan ? 0 : (aNan ? 1 : -1);   // NaN always last
+        }
+        if (ka < kb) return -sign;
+        if (ka > kb) return sign;
+        return 0;
+    });
+    return order;
+}
+
+/**
+ * The active display order, or null for the default newest-first fast path.
+ * Cached and rebuilt only when marked stale.
+ * @param {Measurement[]} ms @param {number} n @returns {number[] | null}
+ */
+function currentSortOrder(ms, n) {
+    if (isDefaultSort()) {
+        return null;
+    }
+    if (!sortOrderValid || !sortOrder || sortOrder.length !== n) {
+        sortOrder = buildSortOrder(ms, n);
+        sortOrderValid = true;
+    }
+    return sortOrder;
+}
+
 /** A spacer row reserving `px` of off-screen scroll height. */
 function spacerRow(px) {
     return px > 0
@@ -647,14 +728,17 @@ function spacerRow(px) {
 }
 
 /**
- * Builds rows for display indices [first, last). Display index 0 is the newest
- * reading (the table shows newest at the top).
- * @param {Measurement[]} ms @param {number} n @param {number} first @param {number} last
+ * Builds rows for display positions [first, last). `order` maps a display
+ * position to its measurements index (from the active sort), or is null for the
+ * default newest-first view (idx = n-1-d). Either way the dB/dt cell is computed
+ * against the row's chronological predecessor (ms[idx-1]), independent of sort.
+ * @param {number[]|null} order @param {Measurement[]} ms
+ * @param {number} n @param {number} first @param {number} last
  */
-function windowRows(ms, n, first, last) {
+function windowRows(order, ms, n, first, last) {
     let s = "";
     for (let d = first; d < last; d++) {
-        const idx = n - 1 - d;
+        const idx = order ? order[d] : n - 1 - d;
         s += spreadsheetRowHTML(ms[idx], ms[idx - 1], d);
     }
     return s;
@@ -668,9 +752,10 @@ function renderSpreadsheet() {
         spreadsheetBody.innerHTML = "";
         return;
     }
+    const order = currentSortOrder(ms, n);
     if (!rowHeight) {
         // Measure a real row once to size the virtual scroll.
-        spreadsheetBody.innerHTML = windowRows(ms, n, 0, Math.min(n, 40));
+        spreadsheetBody.innerHTML = windowRows(order, ms, n, 0, Math.min(n, 40));
         rowHeight = (spreadsheetBody.firstElementChild &&
             spreadsheetBody.firstElementChild.offsetHeight) || 20;
     }
@@ -681,25 +766,29 @@ function renderSpreadsheet() {
     const last = Math.min(n, first + count);
     spreadsheetBody.innerHTML =
         spacerRow(first * rowHeight) +
-        windowRows(ms, n, first, last) +
+        windowRows(order, ms, n, first, last) +
         spacerRow((n - last) * rowHeight);
 }
 
 /** Re-renders the visible window from the active buffer (keeps scroll pos). */
 function rebuildSpreadsheet() {
+    invalidateSortOrder();   // rotation/delta-B/filter may have changed the keys
     renderSpreadsheet();
 }
 
 /** Renders from the top (newest) — used on file load and tab switch. */
 function resetSpreadsheet() {
+    invalidateSortOrder();
     spreadsheetBody.scrollTop = 0;
     renderSpreadsheet();
 }
 
 /** Live: a newest reading arrived; keep the user's place unless at the top. */
 function addSpreadsheetRow() {
-    if (rowHeight && spreadsheetBody.scrollTop >= rowHeight) {
-        // Content grows at the top (newest-first); shift to stay on same rows.
+    invalidateSortOrder();   // the new reading must be re-placed in a custom sort
+    if (isDefaultSort() && rowHeight && spreadsheetBody.scrollTop >= rowHeight) {
+        // Newest-first: content grows at the top; shift to stay on same rows.
+        // (A custom sort can insert anywhere, so don't assume top growth.)
         spreadsheetBody.scrollTop += rowHeight;
     }
     renderSpreadsheet();
@@ -716,6 +805,38 @@ spreadsheetBody.addEventListener("scroll", () => {
         renderSpreadsheet();
     });
 });
+
+// ---- Spreadsheet header: click to sort --------------------------------------
+const spreadsheetHead = document.querySelector("#spreadsheet thead");
+
+/** Reflects the active sort on the header cells (drives the caret via CSS). */
+function syncSortHeader() {
+    for (const th of spreadsheetHead.querySelectorAll("th[data-sort]")) {
+        th.setAttribute("aria-sort",
+            th.dataset.sort === sortState.col
+                ? (sortState.dir === "asc" ? "ascending" : "descending")
+                : "none");
+    }
+}
+
+spreadsheetHead.addEventListener("click", ev => {
+    const th = ev.target.closest("th[data-sort]");
+    if (!th) {
+        return;
+    }
+    const col = th.dataset.sort;
+    if (col === sortState.col) {
+        sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    } else {
+        sortState.col = col;
+        // Time defaults to newest-first; value columns to ascending.
+        sortState.dir = col === "time" ? "desc" : "asc";
+    }
+    syncSortHeader();
+    resetSpreadsheet();   // rebuilds the order, scrolls to top, re-renders
+});
+
+syncSortHeader();
 
 /**
  * @param {Measurement} m
@@ -1306,6 +1427,13 @@ dBdtToggle.addEventListener("change", ev => {
     settings.dBdt = ev.target.checked;
     saveSettings();
     updatedBdt();
+    // Don't leave the table sorted by a now-hidden column.
+    if (!settings.dBdt && sortState.col === "dbdt") {
+        sortState.col = "time";
+        sortState.dir = "desc";
+        syncSortHeader();
+        resetSpreadsheet();
+    }
 })
 
 // ----------------------------------------------------------------------------

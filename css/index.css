@@ -377,6 +377,27 @@ thead th {
     padding: 6px;
 }
 
+/* Click-to-sort headers. Only the active column shows a direction caret (driven
+   by aria-sort, set in js/index.js), so narrow columns aren't crowded. */
+thead th[data-sort] {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+thead th[data-sort]:hover {
+    background-color: var(--surface-hover);
+}
+thead th[aria-sort="ascending"]::after {
+    content: " \25B2";   /* ▲ */
+    font-size: 0.7em;
+    vertical-align: middle;
+}
+thead th[aria-sort="descending"]::after {
+    content: " \25BC";   /* ▼ */
+    font-size: 0.7em;
+    vertical-align: middle;
+}
+
 td {
     text-align: center;
     padding: 2px;
