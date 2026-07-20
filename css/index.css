@@ -237,7 +237,7 @@ footer {
        below it, and the spreadsheet takes the remaining space and scrolls.
        minmax(0, …) lets the spreadsheet row shrink so its table scrolls instead
        of pushing content off-screen. */
-    grid-template-rows: auto 15% minmax(0, 1fr);
+    grid-template-rows: auto 19% minmax(0, 1fr);
     min-height: 0;
     grid-column: 3; /* third layout column (after the drawer + plots) */
 }

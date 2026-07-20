@@ -1,28 +1,242 @@
 {
     "traces": [
-        { "type": "scatter", "mode": "lines", "x": [], "y": [], "line": { "width": 1.5, "color": "#f00" }, "xaxis": "x", "yaxis": "y" },
-        { "type": "scatter", "mode": "lines", "x": [], "y": [], "line": { "width": 1.5, "color": "#0f0" }, "xaxis": "x2", "yaxis": "y2" },
-        { "type": "scatter", "mode": "lines", "x": [], "y": [], "line": { "width": 1.5, "color": "#0af" }, "xaxis": "x3", "yaxis": "y3" },
-        { "type": "scatter", "mode": "lines", "x": [], "y": [], "line": { "width": 1.5, "color": "#f0f" }, "xaxis": "x4", "yaxis": "y4" }
+        {
+            "type": "scatter",
+            "mode": "lines",
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5,
+                "color": "#f00"
+            },
+            "xaxis": "x",
+            "yaxis": "y"
+        },
+        {
+            "type": "scatter",
+            "mode": "lines",
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5,
+                "color": "#0f0"
+            },
+            "xaxis": "x2",
+            "yaxis": "y2"
+        },
+        {
+            "type": "scatter",
+            "mode": "lines",
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5,
+                "color": "#0af"
+            },
+            "xaxis": "x3",
+            "yaxis": "y3"
+        },
+        {
+            "type": "scatter",
+            "mode": "lines",
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5,
+                "color": "#f0f"
+            },
+            "xaxis": "x4",
+            "yaxis": "y4"
+        },
+        {
+            "type": "scatter",
+            "mode": "lines",
+            "x": [],
+            "y": [],
+            "line": {
+                "width": 1.5,
+                "color": "#ffae00"
+            },
+            "xaxis": "x5",
+            "yaxis": "y5"
+        }
     ],
     "layout": {
         "template": "plotly_white",
-        "margin": { "l": 0, "r": 0, "t": 0, "b": 0, "pad": 0 },
+        "margin": {
+            "l": 0,
+            "r": 0,
+            "t": 0,
+            "b": 0,
+            "pad": 0
+        },
         "showlegend": false,
         "annotations": [
-            { "text": "H", "xref": "x domain", "x": 0.02, "yref": "y domain", "y": 0.96, "xanchor": "left", "yanchor": "top", "showarrow": false, "font": { "size": 11 } },
-            { "text": "E", "xref": "x2 domain", "x": 0.02, "yref": "y2 domain", "y": 0.96, "xanchor": "left", "yanchor": "top", "showarrow": false, "font": { "size": 11 } },
-            { "text": "Z", "xref": "x3 domain", "x": 0.02, "yref": "y3 domain", "y": 0.96, "xanchor": "left", "yanchor": "top", "showarrow": false, "font": { "size": 11 } },
-            { "text": "Mag", "xref": "x4 domain", "x": 0.02, "yref": "y4 domain", "y": 0.96, "xanchor": "left", "yanchor": "top", "showarrow": false, "font": { "size": 11 } }
+            {
+                "text": "H",
+                "xref": "x domain",
+                "x": 0.02,
+                "yref": "y domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "E",
+                "xref": "x2 domain",
+                "x": 0.02,
+                "yref": "y2 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "Z",
+                "xref": "x3 domain",
+                "x": 0.02,
+                "yref": "y3 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "Mag",
+                "xref": "x4 domain",
+                "x": 0.02,
+                "yref": "y4 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "Temp",
+                "xref": "x5 domain",
+                "x": 0.02,
+                "yref": "y5 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            }
         ],
-        "xaxis":  { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y",  "domain": [0.0, 0.5] },
-        "xaxis2": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y2", "matches": "x", "domain": [0.5, 1.0] },
-        "xaxis3": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y3", "matches": "x", "domain": [0.0, 0.5] },
-        "xaxis4": { "type": "date", "autorange": true, "showgrid": false, "zeroline": false, "showticklabels": false, "showline": false, "ticks": "", "anchor": "y4", "matches": "x", "domain": [0.5, 1.0] },
-        "yaxis":  { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x",  "domain": [0.5, 1.0] },
-        "yaxis2": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x2", "domain": [0.5, 1.0] },
-        "yaxis3": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x3", "domain": [0.0, 0.5] },
-        "yaxis4": { "showgrid": false, "zeroline": false, "showticklabels": false, "ticks": "", "anchor": "x4", "domain": [0.0, 0.5] }
+        "xaxis": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "anchor": "y",
+            "domain": [0.0, 0.5]
+        },
+        "xaxis2": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "anchor": "y2",
+            "matches": "x",
+            "domain": [0.0, 0.5]
+        },
+        "xaxis3": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "anchor": "y3",
+            "matches": "x",
+            "domain": [0.0, 0.5]
+        },
+        "xaxis4": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "anchor": "y4",
+            "matches": "x",
+            "domain": [0.5, 1.0]
+        },
+        "xaxis5": {
+            "type": "date",
+            "autorange": true,
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "showline": false,
+            "ticks": "",
+            "anchor": "y5",
+            "matches": "x",
+            "domain": [0.5, 1.0]
+        },
+        "yaxis": {
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x",
+            "domain": [0.67, 1.0]
+        },
+        "yaxis2": {
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x2",
+            "domain": [0.33, 0.67]
+        },
+        "yaxis3": {
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x3",
+            "domain": [0.0, 0.33]
+        },
+        "yaxis4": {
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x4",
+            "domain": [0.67, 1.0]
+        },
+        "yaxis5": {
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x5",
+            "domain": [0.33,0.67]
+        }
     },
     "config": {
         "responsive": true,

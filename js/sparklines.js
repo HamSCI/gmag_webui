@@ -1,12 +1,13 @@
 import Measurement from "./object/Measurement.js";
 
 // Row palette: solid line color + translucent fill for the min/max envelope.
-// Order: H, E, Z, magnitude.
+// Order: H, E, Z, magnitude, temperature
 const SPARK_ROWS = [
     { color: "#f00", fill: "rgba(255, 0, 0, 0.18)" },
     { color: "#0f0", fill: "rgba(0, 200, 0, 0.16)" },
     { color: "#0af", fill: "rgba(0, 170, 255, 0.18)" },
     { color: "#f0f", fill: "rgba(255, 0, 255, 0.15)" },
+    { color: "#ffae00", fill: "rgba(255, 174, 0, 0.18)"}
 ];
 
 /**
@@ -84,12 +85,21 @@ export function buildSparklineTraces(sparklines, toDisplay) {
 
     const comp = (c) => series((v) => v[c]);
     const mag = series((v) => v.magnitude);
+    const tAvg = sparklines.map(s => s.avg.celsius);
+    const tLo = sparklines.map(s => s.lo.celsius);
+    const tHi = sparklines.map(s => s.hi.celsius);
+    const tmp = {
+        avg: tAvg,
+        lower: tLo.map((v, i) => Math.min(v, tHi[i], tAvg[i])),
+        upper: tLo.map((v, i) => Math.max(v, tHi[i], tAvg[i])),
+    };
 
     return [
         ...row(SPARK_ROWS[0], comp(0), "x", "y"),
         ...row(SPARK_ROWS[1], comp(1), "x2", "y2"),
         ...row(SPARK_ROWS[2], comp(2), "x3", "y3"),
         ...row(SPARK_ROWS[3], mag, "x4", "y4"),
+        ...row(SPARK_ROWS[4], tmp, "x5", "y5"),
     ];
 }
 
