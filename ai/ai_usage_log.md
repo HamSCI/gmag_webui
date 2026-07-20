@@ -183,4 +183,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: `js/index.js` (sort state + `sortValueAt`/`buildSortOrder`/`currentSortOrder` with a cached, invalidated permutation; `windowRows` takes the order with a null fast path for the default newest-first view; `renderSpreadsheet` and the rebuild/reset/add wrappers invalidate the cache; `thead` click-to-sort handler + `syncSortHeader`; fall back to the default sort when the dB/dt column is hidden while sorted by it), `index.html` (`data-sort`/`scope` attributes on the spreadsheet header cells), `css/index.css` (clickable header styling, hover, and `aria-sort` ▲/▼ carets on the active column)
 - **Nature of Contribution**: Code generation (feature)
 - **Human Review Status**: Reviewed and verified (headless WebKit with 6000 rows: default newest-first, ascending/descending per column monotonic and correct, stable ties, caret/aria-sort track the active column, no console errors; `deno lint` clean, 28/28 tests pass)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: c013402
