@@ -1035,7 +1035,7 @@ function isConfigured(src) {
         return isValidWsUrl(src.websocket.url);
     }
     if (src.type === "mqtt") {
-        return isValidWsUrl(src.mqtt.broker) && !!src.mqtt.topic;
+        return isValidBrokerUrl(src.mqtt.broker) && !!src.mqtt.topic;
     }
     return false; // file: no live transport
 }
@@ -1539,17 +1539,39 @@ mqttTopic.addEventListener("input", () => { mqttTopicErr.textContent = ""; });
 logfile.addEventListener("change", () => { fileErr.textContent = ""; });
 
 /**
+ * Validates `url` against an explicit list of allowed schemes. The allowlist is
+ * essential: a bare `new URL(url)` parses any scheme, so http:/https: (and
+ * anything else) would otherwise pass. Also requires a host, which rejects the
+ * opaque forms (e.g. "mqtt:foo") that still parse with a valid protocol.
+ * @param {string} url
+ * @param {string[]} allowed permitted URL protocols, e.g. ["ws:", "wss:"]
+ * @returns {boolean}
+ */
+function isValidUrl(url, allowed) {
+    try {
+        const u = new URL(url);
+        return allowed.includes(u.protocol) && !!u.hostname;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * @param {string} url
  * @returns {boolean} whether `url` is a valid ws:// or wss:// URL
  */
 function isValidWsUrl(url) {
-    try {
-        const u = new URL(url);
-        return u.protocol === "ws:" || u.protocol === "wss:" ||
-               u.protocol === "mqtt:" || "mqtts:";
-    } catch {
-        return false;
-    }
+    return isValidUrl(url, ["ws:", "wss:"]);
+}
+
+/**
+ * The MQTT broker accepts WebSocket (ws/wss) and native MQTT (mqtt/mqtts)
+ * schemes — but not http/https or anything else.
+ * @param {string} url
+ * @returns {boolean} whether `url` is a valid ws/wss/mqtt/mqtts broker URL
+ */
+function isValidBrokerUrl(url) {
+    return isValidUrl(url, ["ws:", "wss:", "mqtt:", "mqtts:"]);
 }
 
 connectBtn.addEventListener("click", () => {
@@ -1576,7 +1598,7 @@ connectBtn.addEventListener("click", () => {
         connectSession(session);
     } else if (src.type === "mqtt") {
         let ok = true;
-        if (!isValidWsUrl(src.mqtt.broker)) {
+        if (!isValidBrokerUrl(src.mqtt.broker)) {
             mqttBrokerErr.textContent = "Enter a ws://, wss://, mqtt:// or mqtts:// broker URL.";
             ok = false;
         }
