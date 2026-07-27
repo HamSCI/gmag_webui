@@ -1545,7 +1545,8 @@ logfile.addEventListener("change", () => { fileErr.textContent = ""; });
 function isValidWsUrl(url) {
     try {
         const u = new URL(url);
-        return u.protocol === "ws:" || u.protocol === "wss:";
+        return u.protocol === "ws:" || u.protocol === "wss:" ||
+               u.protocol === "mqtt:" || "mqtts:";
     } catch {
         return false;
     }
@@ -1576,7 +1577,7 @@ connectBtn.addEventListener("click", () => {
     } else if (src.type === "mqtt") {
         let ok = true;
         if (!isValidWsUrl(src.mqtt.broker)) {
-            mqttBrokerErr.textContent = "Enter a ws:// or wss:// broker URL.";
+            mqttBrokerErr.textContent = "Enter a ws://, wss://, mqtt:// or mqtts:// broker URL.";
             ok = false;
         }
         if (!src.mqtt.topic) {
