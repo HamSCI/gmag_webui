@@ -167,7 +167,8 @@ input[type="button"], button {
     padding: 4px;
     border: 0;
     border-radius: 4px;
-    transition: background .2s ease;
+    transition: background .2s ease,
+                color .2s ease;
 }
 input[type="button"]:hover, button:hover {
     background: var(--btn-primary-hover);
@@ -695,9 +696,15 @@ td {
     border-bottom-left-radius: 0;
 }
 .select-group > button:disabled {
-    background-color: var(--col-success);
+    background-color: var(--btn-primary-bg);
     color: #fff;
     cursor: default;
+}
+[data-theme="light"] .select-group > button:not(:disabled) {
+    color: #000;
+}
+[data-theme="light"] .select-group>button:not(:disabled):active {
+    color: #fff;
 }
 
 /* Rotation sliders: label | track | value */
