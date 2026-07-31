@@ -1,21 +1,99 @@
-/* Variables */
+/* Variables
+   Theme-agnostic tokens (status/series/button colors) live here unconditionally.
+   Themeable surface/text tokens default to the DARK palette on :root (a safe
+   no-JS fallback) and are overridden under :root[data-theme="light"]. js/index.js
+   sets data-theme on <html> from the saved preference or prefers-color-scheme, so
+   one of the two palettes is always in effect. */
 :root {
+    /* Constant across themes */
     --col-success: #00c900;
     --col-danger: #ff3b14;
     --col-warning: #ffe100;
     --col-info: #00aeff;
-    --col-btn-inactive: #00bfff;
-    --col-btn-hover: #69dcff;
-    --col-btn-disabled: rgba(0, 125, 166, 0.9);
+    --btn-primary-bg: #00bfff;
+    --btn-primary-hover: #69dcff;
+    --btn-primary-active: #a0e4ff;
+    --btn-primary-disabled: #007da6e6;
     --col-tab-active: #424242;
-    --hbar-grad: linear-gradient(#000000, #606060, #000000);
     --right-side-radius: 8px;
+
+    /* Themeable — DARK palette (default / fallback) */
+    --bg: #1e1e1e;
+    --fg: #f0f0f0;
+    --muted: #cfcfcf;
+    --link: #69daff;
+    /* Header/footer chrome */
+    --hbar-grad: linear-gradient(#000000, #606060, #000000);
+    --chrome-fg: #ffffff;
+    --chrome-fg-dim: #cfcfcf;
+    --chrome-soft: rgba(255, 255, 255, 0.08);
+    --chrome-hover: rgba(255, 255, 255, 0.16);
+    /* Content-box + table surfaces */
+    --surface-header-bg: #333333;
+    --surface-header-fg: #ffffff;
+    --surface-hover: #444444;
+    --border: rgba(255, 255, 255, 0.12);
+    --row-hover: #2f4a63;
+    --row-stripe: rgba(255, 255, 255, 0.05);
+    /* Form inputs */
+    --input-bg: #3a3a3a;
+    --input-fg: #f0f0f0;
+    --input-border: rgba(255, 255, 255, 0.14);
+    /* Secondary buttons */
+    --btn-secondary-bg: #515151;
+    --btn-secondary-hover: #5e5e5e;
+    --btn-secondary-active: #757575;
+    --btn-secondary-fg: #ffffff;
     /* Config panel (instrument-panel surface) */
     --panel-bg: #2b2b2b;
     --panel-header-bg: #383838;
     --panel-text: #f0f0f0;
     --panel-muted: #9a9a9a;
     --panel-border: rgba(255, 255, 255, 0.08);
+}
+
+/* Themeable — LIGHT palette */
+:root[data-theme="light"] {
+    --bg: #f0f2f5;
+    --fg: #1a1a1a;
+    --muted: #5a5f66;
+    --link: #69beff;
+    /* Dark brushed silver (gunmetal): light steel highlights over a graphite
+       body with a specular seam at the midline. Kept dark so the light chrome
+       text and the colored connection-status indicator (green/red/yellow) stay
+       readable. Shared by the header, footer, and content-box bars. */
+    --hbar-grad: linear-gradient(180deg,
+        #8b939c 0%,
+        #656d75 16%,
+        #454b52 45%,
+        #383e45 50%,
+        #4e555d 53%,
+        #6b727a 82%,
+        #4a5058 100%);
+    --chrome-fg: #f4f6f8;
+    --chrome-fg-dim: #c3c9d0;
+    --chrome-soft: rgba(255, 255, 255, 0.08);
+    --chrome-hover: rgba(255, 255, 255, 0.16);
+    /* Table/column headers use a solid gunmetal that echoes the chrome
+       gradient's tone (a light-theme gradient can't be used behind them, and a
+       light fill would wash out the bright inline series-color labels — Temp
+       #ff0, dB/dt #9af8ff, E green). --surface-header-fg stays white. */
+    --surface-header-bg: #474e56;
+    --surface-hover: #d5dbe2;
+    --border: rgba(0, 0, 0, 0.12);
+    --row-hover: #d6ebff;
+    --row-stripe: rgba(0, 0, 0, 0.05);
+    --input-bg: #eef1f5;
+    --input-fg: #1a1a1a;
+    --input-border: #b7c0ca;
+    --btn-secondary-bg: #d5dbe2;
+    --btn-secondary-hover: #c4ccd5;
+    --btn-secondary-fg: #1a1a1a;
+    --panel-bg: #ffffff;
+    --panel-header-bg: #e4e9ef;
+    --panel-text: #1a1a1a;
+    --panel-muted: #5a5f66;
+    --panel-border: rgba(0, 0, 0, 0.10);
 }
 
 * {
@@ -30,6 +108,8 @@ body {
     height: 100vh;
     overflow: hidden;
     font-family: Arial, Helvetica, sans-serif;
+    background-color: var(--bg);
+    color: var(--fg);
 }
 
 header {
@@ -41,7 +121,7 @@ header > div {
     flex-direction: row;
     background: var(--hbar-grad);
     padding: 0px 12px;
-    color: #fff;
+    color: var(--chrome-fg);
     align-items: center;
     height: 45px;
 }
@@ -52,11 +132,18 @@ main {
     /* Allow the grid row to constrain the plots rather than the plots'
        intrinsic height stretching the row (and the whole layout) taller. */
     min-height: 0;
+    /* Second layout column: the first (leading) column is the config drawer's
+       reserved space, which is 0 until the drawer opens. */
+    grid-column: 2;
+    /* Clip the plot to its column so that, during the open/close width
+       transition (Plotly re-fits only once it settles), the old-width chart is
+       trimmed rather than spilling over the right column. */
+    overflow: hidden;
 }
 
-/* main > div {
-    height: 20%;
-} */
+#wordmark {
+    font-style: italic;
+}
 
 #plots {
     height: 100%;
@@ -71,22 +158,23 @@ main {
 }
 
 a {
-    color: #69daff;
+    color: var(--link);
 }
 
 input[type="button"], button {
-    background: var(--col-btn-inactive);
+    background: var(--btn-primary-bg);
     color: #ffffff;
     padding: 4px;
     border: 0;
     border-radius: 4px;
-    transition: background .2s ease;
+    transition: background .2s ease,
+                color .2s ease;
 }
 input[type="button"]:hover, button:hover {
-    background: var(--col-btn-hover);
+    background: var(--btn-primary-hover);
 }
 input[type="button"]:disabled, button:disabled {
-    background: var(--col-btn-disabled);
+    background: var(--btn-primary-disabled);
 }
 
 input[type="button"] {
@@ -107,11 +195,18 @@ footer {
     text-align: center;
     background: var(--hbar-grad);
     vertical-align: bottom;
-    color: #fff;
+    color: var(--chrome-fg);
     padding-top: 7px;
     padding-bottom: 7px;
     display: grid;
     grid-template-columns: 1fr 60px;
+    /* Vertically center both columns (copyright text + theme toggle) in the row
+       so the toggle stays centered regardless of the row's height. */
+    align-items: center;
+    /* Paint above the config drawer so the portrait-mode fixed sidebar
+       (position: fixed; bottom: 0) can't cover the footer (issue #27). */
+    position: relative;
+    z-index: 2;
 }
 
 .layout {
@@ -120,23 +215,32 @@ footer {
        grid row to it (minmax floor of 0), so tall column content scrolls or
        clips inside its cell instead of stretching the page. */
     min-height: 0;
-    /* Positioning context for the config sidebar, which overlays this band
-       (between the header and footer) rather than the whole viewport. */
+    /* Positioning context for the config drawer, which is absolutely positioned
+       over the (empty) leading grid column it reserves. */
     position: relative;
     display: grid;
-    grid-template-columns: 1fr 500px;
+    /* Three columns: [config drawer] [plots] [right column]. The drawer column
+       is 0 until the drawer opens, at which point it grows and pushes the plots
+       right — constricting them rather than covering them, so the y-axis stays
+       visible. Animate the track so the plots slide in step with the drawer. */
+    grid-template-columns: 0 1fr 500px;
     grid-template-rows: minmax(0, 1fr);
+    transition: grid-template-columns 0.3s ease;
+}
+.layout.config-open {
+    grid-template-columns: 320px 1fr 500px;
 }
 
 /*TODO: At some point we want to make this resizable.*/
 .right-column {
     display: grid;
-    /* Current Reading sizes to its content (no trailing whitespace), the
-       spreadsheet takes the remaining space and scrolls, and Trends keeps a
-       proportional slice. minmax(0, …) lets the middle row shrink so its
-       table scrolls instead of pushing Trends off-screen. */
-    grid-template-rows: auto minmax(0, 1fr) 25%;
+    /* Current Reading sizes to its content, Trends keeps a proportional slice
+       below it, and the spreadsheet takes the remaining space and scrolls.
+       minmax(0, …) lets the spreadsheet row shrink so its table scrolls instead
+       of pushing content off-screen. */
+    grid-template-rows: auto 19% minmax(0, 1fr);
     min-height: 0;
+    grid-column: 3; /* third layout column (after the drawer + plots) */
 }
 
 .content-box {
@@ -166,15 +270,29 @@ footer {
     color: var(--panel-text);
     transition: transform 0.3s ease;
 }
+.layout.config-open #config {
+    transform: translateX(0);
+}
 
 #sideToggle {
     margin-right: 12px;
+    font-size: 14pt;
+}
+
+.flex-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
 }
 
 #wordmark {
     font-size: 16pt;
     margin-left: 16px;
     flex-shrink: 0;
+}
+
+#trends {
+    margin-bottom: 5px;
 }
 
 #data, #trends {
@@ -193,6 +311,8 @@ footer {
     margin-top: 5px;
     font-size: 10pt;
     border-radius: var(--right-side-radius);
+    /* Scale smoothly with the drawer transition when the column narrows. */
+    transition: font-size 0.3s ease;
 }
 
 table {
@@ -215,6 +335,12 @@ table {
 .fixed-head {
     display: block;
     flex: 0 0 auto;
+    /* Reserve the same scrollbar gutter the body reserves, so the header
+       columns stay aligned with the data whether or not the body scrolls.
+       overflow-y: hidden keeps the header itself unscrollable / gutter-only. */
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+    background-color: var(--surface-header-bg);
 }
 
 .scrolling {
@@ -222,6 +348,9 @@ table {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* Always reserve the scrollbar gutter (even before the body overflows) so
+       the columns don't shift when the scrollbar appears. */
+    scrollbar-gutter: stable;
 }
 
 .fixed-head tr,
@@ -238,10 +367,36 @@ table {
     white-space: nowrap;
 }
 
+/* dB/dt column (issue #29): shown only when "Show dB/dt" is enabled. */
+#spreadsheet:not(.show-dbdt) .col-dbdt {
+    display: none;
+}
+
 thead th {
-    background-color: #333;
-    color: #fff;
+    background-color: var(--surface-header-bg);
+    color: var(--surface-header-fg);
     padding: 6px;
+}
+
+/* Click-to-sort headers. Only the active column shows a direction caret (driven
+   by aria-sort, set in js/index.js), so narrow columns aren't crowded. */
+thead th[data-sort] {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+thead th[data-sort]:hover {
+    background-color: var(--surface-hover);
+}
+thead th[aria-sort="ascending"]::after {
+    content: " \25B2";   /* ▲ */
+    font-size: 0.7em;
+    vertical-align: middle;
+}
+thead th[aria-sort="descending"]::after {
+    content: " \25BC";   /* ▼ */
+    font-size: 0.7em;
+    vertical-align: middle;
 }
 
 td {
@@ -249,17 +404,31 @@ td {
     padding: 2px;
 }
 
-tbody tr:hover {
-    background: #bef;
+/* tbody tr:hover {
+    background: var(--row-hover);
+} */
+
+/* Alternate row color slightly. The spreadsheet body is virtualized (only the
+   visible window is in the DOM), so striping is keyed to a per-row .stripe class
+   set from the stable display index rather than :nth-of-type. */
+.scrolling tr.stripe {
+    background-color: var(--row-stripe);
 }
 
-/* Alternate row color slightly */
-tr:nth-of-type(2n) {
-    background-color: rgba(0, 0, 0, 0.05);
+/* Virtualization spacers reserve off-screen scroll height; never highlight. */
+.scrolling tr.spacer,
+.scrolling tr.spacer:hover {
+    background: none;
 }
 
 #status {
     text-align: right;
+    /* Keep the connection status on a single line; when many/long source tabs
+       fill the header, the tab strip scrolls (#tabs overflow-x) instead of
+       squeezing this text into an ugly wrap (issue #27). */
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 12px;
 }
 
 #status.success {
@@ -290,8 +459,8 @@ tr:nth-of-type(2n) {
     display: flex;
     flex-direction: row;
     background-image: var(--hbar-grad);
-    background-color: #333;
-    color: #fff;
+    background-color: var(--surface-header-bg);
+    color: var(--chrome-fg);
     padding: 6px;
     border-radius: var(--right-side-radius);
 }
@@ -317,7 +486,7 @@ tr:nth-of-type(2n) {
     align-items: center;
     gap: 8px;
     background-color: var(--panel-header-bg);
-    color: #fff;
+    color: var(--panel-text);
     border: 0;
     border-radius: 0;
     padding: 11px 12px;
@@ -329,7 +498,7 @@ tr:nth-of-type(2n) {
     transition: background 0.15s ease;
 }
 .panel-header:hover {
-    background-color: #444;
+    background-color: var(--surface-hover);
 }
 .panel-header .title {
     flex-grow: 1;
@@ -373,14 +542,15 @@ tr:nth-of-type(2n) {
 .field input[type="text"],
 .field input[type="password"],
 .field input[type="url"],
+.field input[type="number"],
 .field select {
     width: 100%;
-    border: 1px solid transparent;
+    border: 1px solid var(--input-border);
     border-radius: 6px;
     padding: 7px 9px;
     font-size: 13px;
-    background-color: #fff;
-    color: #1a1a1a;
+    background-color: var(--input-bg);
+    color: var(--input-fg);
 }
 .field input.mono {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -388,7 +558,7 @@ tr:nth-of-type(2n) {
 }
 .field input:focus-visible,
 .field select:focus-visible {
-    outline: 2px solid var(--col-btn-inactive);
+    outline: 2px solid var(--btn-primary-bg);
     outline-offset: 1px;
 }
 .field input[type="file"] {
@@ -404,8 +574,19 @@ tr:nth-of-type(2n) {
 }
 
 /* Fix spacing issues for MQTT broker panel */
-.type-fields[data-type="mqtt"] > .field:not(:first-of-type) {
+.type-fields[data-type="mqtt"] > .field:not(:first-of-type)/*,
+.method-fields[data-type="constant"] > .field:not(:first-of-type)*/ {
     padding-top: 10px;
+}
+
+.method-fields[data-type="constant"] {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+}
+
+#delta {
+    rotate: -90deg;
 }
 
 /* Subheads inside a panel body */
@@ -419,7 +600,7 @@ tr:nth-of-type(2n) {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #cfcfcf;
+    color: var(--panel-muted);
 }
 
 .note {
@@ -433,7 +614,8 @@ tr:nth-of-type(2n) {
 
 /* Buttons */
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-error {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -446,19 +628,41 @@ tr:nth-of-type(2n) {
     font-weight: 700;
     cursor: pointer;
 }
+.btn-primary.sm {
+    border-radius: 4px;
+    padding: 4px;
+    font-size: 9px;
+    font-weight: 500;
+}
 .btn-primary {
-    background-color: var(--col-btn-inactive);
+    background-color: var(--btn-primary-bg);
     color: #fff;
 }
 .btn-primary:hover {
-    background-color: var(--col-btn-hover);
+    background-color: var(--btn-primary-hover);
+}
+.btn-primary:active {
+    background-color: var(--btn-primary-active);
 }
 .btn-secondary {
-    background-color: #515151;
-    color: #fff;
+    background-color: var(--btn-secondary-bg);
+    color: var(--btn-secondary-fg);
 }
 .btn-secondary:hover {
-    background-color: #5e5e5e;
+    background-color: var(--btn-secondary-hover);
+}
+.btn-secondary:active {
+    background-color: var(--btn-secondary-active);
+}
+.btn-error {
+    background-color: #e65353;
+    color: #fff;
+}
+.btn-error:hover {
+    background-color: #ee2d2d;
+}
+.btn-error:active {
+    background-color: #f00;
 }
 
 /* Segmented control (source type, moving-average toggle) */
@@ -467,11 +671,18 @@ tr:nth-of-type(2n) {
     flex-direction: row;
 }
 .select-group > button {
+    background-color: var(--btn-secondary-bg);
     flex: 1 1 0;
     border: 0;
     padding: 7px 4px;
     font-size: 12px;
     cursor: pointer;
+}
+.select-group > button:not(:disabled):hover {
+    background-color: var(--btn-secondary-hover);
+}
+.select-group > button:not(:disabled):active {
+    background-color: var(--btn-secondary-active);
 }
 .select-group > button:not(:first-of-type):not(:last-of-type) {
     border-radius: 0;
@@ -485,9 +696,15 @@ tr:nth-of-type(2n) {
     border-bottom-left-radius: 0;
 }
 .select-group > button:disabled {
-    background-color: var(--col-success);
+    background-color: var(--btn-primary-bg);
     color: #fff;
     cursor: default;
+}
+[data-theme="light"] .select-group > button:not(:disabled) {
+    color: #000;
+}
+[data-theme="light"] .select-group>button:not(:disabled):active {
+    color: #fff;
 }
 
 /* Rotation sliders: label | track | value */
@@ -502,11 +719,12 @@ tr:nth-of-type(2n) {
     width: 100%;
 }
 .slider-group > span {
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
 }
 
-.type-fields[hidden] {
+.type-fields[hidden],
+.method-fields[hidden] {
     display: none;
 }
 
@@ -538,18 +756,18 @@ tr:nth-of-type(2n) {
     flex: 0 0 auto;
     padding: 5px 9px;
     border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.08);
-    color: #cfcfcf;
+    background-color: var(--chrome-soft);
+    color: var(--chrome-fg-dim);
     font-size: 12px;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
 }
 .tab:hover {
-    background-color: rgba(255, 255, 255, 0.16);
+    background-color: var(--chrome-hover);
 }
 .tab.active {
     background-color: var(--panel-bg);
-    color: #fff;
+    color: var(--panel-text);
 }
 
 .tab-name {
@@ -574,13 +792,13 @@ tr:nth-of-type(2n) {
 .tab-close {
     flex: 0 0 auto;
     font-size: 11px;
-    color: #aaa;
+    color: var(--chrome-fg-dim);
     border-radius: 3px;
     padding: 1px 3px;
 }
 .tab-close:hover {
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--chrome-fg);
+    background-color: var(--chrome-hover);
 }
 
 #addTab {
@@ -590,12 +808,12 @@ tr:nth-of-type(2n) {
     height: 28px;
     border: 0;
     border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #fff;
+    background-color: var(--chrome-soft);
+    color: var(--chrome-fg);
     cursor: pointer;
 }
 #addTab:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: var(--chrome-hover);
 }
 #addTab:disabled {
     opacity: 0.4;
@@ -612,12 +830,13 @@ tr:nth-of-type(2n) {
     display: grid;
     gap: 5px;
 }
-.row1 {
-    grid-template-columns: repeat(3, 1fr);
-}
 .row2 {
     grid-template-columns: repeat(2, 1fr);
 }
+.row1, .row2.dB {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 .cell {
     padding: 5px;
     text-align: center;
@@ -631,7 +850,8 @@ tr:nth-of-type(2n) {
 .row1 .cell:last-of-type { background-color: #023e8a; }
 
 .row2 .cell:first-of-type { background-color: #da1884; }
-.row2 .cell:last-of-type { background-color: #ffb200; }
+.row2 .cell:nth-of-type(2) { background-color: #ffb200; }
+.row2 .cell:nth-of-type(3) { background-color: #11c6da; }
 
 .cell-head {
     text-align: left;
@@ -640,14 +860,22 @@ tr:nth-of-type(2n) {
 }
 .cell-value {
     font-size: 18pt;
+    /* Scale smoothly in step with the drawer's grid-template-columns transition
+       when the data column narrows/widens (see the max-width: 1300px block). */
+    transition: font-size 0.3s ease;
 }
 
-/* Src: https: //www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
+/* Src: https://www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
 .toggle-switch {
     position: relative;
     display: inline-block;
     width: 30px;
     height: 15px;
+}
+
+.toggle-switch.lg {
+    width: 60px;
+    height: 30px;
 }
 
 .toggle-switch input {
@@ -680,6 +908,11 @@ tr:nth-of-type(2n) {
     border-radius: 2px;
 }
 
+.toggle-switch.lg.square > .slider::before {
+    height: 26px;
+    width: 26px;
+}
+
 .square input:checked + .slider {
     background-color: #4caf50;
 }
@@ -688,11 +921,157 @@ tr:nth-of-type(2n) {
     transform: translateX(14px);
 }
 
+.toggle-switch.lg.square input:checked + .slider::before {
+    transform: translateX(30px);
+}
+
 #ldWrapper {
     display: flex;
+    align-items: center;
     margin-right: 7px;
 }
 
 #ldWrapper i {
     padding-right: 7px;
+}
+
+/* ----------------------------------------------------------------------------
+   Responsive: tablets / iPad (issue #27)
+   The dashboard is a fixed-viewport, side-by-side layout on desktop, and the
+   plots stay the star of the show. Rather than steal width from them, on tablet
+   widths we shrink the spreadsheet's text so its 6–7 columns stay readable in
+   the 500px data column. Portrait tablets can't fit both side by side, so we
+   stack the plots over the data band.
+   ---------------------------------------------------------------------------- */
+
+/* Landscape tablets and small windows (covers iPad landscape ~1024–1194):
+   opening the drawer here would crush the plots, since the base constrict keeps
+   the 500px data column (plot = width − 320 − 500). Borrow the space from the
+   data column instead so the plots stay usable with the y-axis visible; the
+   column restores to 500px when the drawer closes. Kept in px (not fr) so it
+   interpolates smoothly with the closed state during the transition. The
+   now-narrow column also needs the smaller spreadsheet text.
+   Floored at min-width: 901px so these config-open overrides don't leak into
+   the portrait layout (≤ 900px), which stacks the panels and has its own
+   sizing — otherwise the higher-specificity .config-open rules would shrink the
+   portrait cells/table when the (overlay) drawer opens. */
+@media (min-width: 901px) and (max-width: 1300px) {
+    .layout.config-open {
+        grid-template-columns: 320px 1fr 350px;
+    }
+    /* With the data column narrowed to 350px, scale its text down so the
+       Current Reading values and the spreadsheet columns still fit; restored to
+       full size when the drawer closes. */
+    .layout.config-open .cell-value {
+        font-size: 12pt;
+    }
+    /* Collapse the export buttons to icons only (labels kept as title tooltips)
+       so they stop crowding the "Spreadsheet" header. */
+    .layout.config-open #data .btn-label {
+        display: none;
+    }
+    .layout.config-open #data .btn-primary.sm {
+        padding: 4px 6px;
+    }
+    /* Shrink the spreadsheet type and trim cell padding so the timestamp and
+       the ~9-char nT values fit their columns without spilling. */
+    .layout.config-open #spreadsheet {
+        font-size: 7.5pt;
+    }
+    .layout.config-open #spreadsheet td {
+        padding: 1px 0;
+    }
+    .layout.config-open #spreadsheet thead th {
+        padding: 3px 0;
+    }
+}
+
+/* Tablet widths: smaller spreadsheet text so the value columns (up to 7 with
+   dB/dt) don't run together in the fixed-width 500px data column. */
+@media (max-width: 1100px) {
+    #spreadsheet {
+        font-size: 8.5pt;
+    }
+}
+
+/* Portrait tablets: stack the plots over the data band. Block flow (not grid)
+   lets main and the data band take their natural heights and the whole thing
+   scroll within .layout. Below the plots, the band is a two-column grid:
+   Current Reading and Trends stacked in the left column, with the Spreadsheet
+   beside them spanning both rows (it's the tall, scrollable one). */
+@media (max-width: 900px) {
+    .layout {
+        /* Flex column so main + the data band divide exactly the space between
+           the header and footer — the whole dashboard fits the portrait
+           viewport with no page scroll (vh heights would overflow, since they
+           don't subtract the header/footer). */
+        display: flex;
+        flex-direction: column;
+    }
+    main {
+        flex: 3 1 0;
+        min-height: 0;
+    }
+    .right-column {
+        /* Flex-sized (bounded by .layout), so the spreadsheet (which spans both
+           rows) can't inflate the shared row and push Trends down — it scrolls
+           internally instead. The spreadsheet gets the larger column share since
+           its columns (up to 7 with dB/dt) need the room. */
+        flex: 2 1 0;
+        min-height: 0;
+        grid-template-columns: 0.75fr 1.25fr;
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+    #current-wrapper {
+        grid-column: 1;
+        grid-row: 1;
+    }
+    /* In the narrow left column, lay the readings out in two columns rather than
+       rows of three, so the numbers aren't cramped (and Current Reading takes a
+       fairer share of the column vs. Trends). `display: contents` flattens the
+       row wrappers so all cells flow into one 2-column grid while keeping the
+       per-cell color selectors intact. */
+    #current {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: none;
+    }
+    .row1,
+    .row2 {
+        display: contents;
+    }
+    /* Smaller reading values let the left column stay narrow, freeing width for
+       the spreadsheet. */
+    .cell-value {
+        font-size: 15pt;
+    }
+    #trends {
+        grid-column: 1;
+        grid-row: 2;
+    }
+    #data {
+        /* Spreadsheet sits beside Current Reading + Trends, spanning both rows;
+           its table keeps its own internal scroll. Match Current Reading's top
+           padding (content-box default is overridden to 0 for #data) so the two
+           panel headers line up. */
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        padding-top: 5px;
+        /* Make the grid gap between all elements equal */
+        padding-left: 0;
+    }
+    /* Pin the config sidebar to the viewport, not the now-scrollable band, so
+       it stays in view while the band scrolls underneath it. */
+    #config {
+        position: fixed;
+        top: 45px;
+        bottom: 0;
+        /* The footer paints above the drawer (z-index); pad the scroll area so
+           the last control can scroll clear of it instead of hiding behind. */
+        padding-bottom: 50px;
+    }
+    /* The wordmark takes up too much space in portrait mode. Give more space
+       to the tabber. */
+    #wordmark {
+        display: none;
+    }
 }

@@ -12,7 +12,7 @@ services:
     restart: unless-stopped
     volumes:
       - .:/app
-    command: ["deno", "task", "dev"]
+    command: ["deno", "task", "start"]
   backend:
     container_name: mag-usb
     build: .

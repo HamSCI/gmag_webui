@@ -1,13 +1,34 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Magnetometer Dash</title>
+        <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
+        <link rel="manifest" href="/site.webmanifest">
         <!--Third-Party Libraries-->
         <link href="vendor/fontawesome-free-7.1.0-web/css/fontawesome.css" rel="stylesheet" />
         <link href="vendor/fontawesome-free-7.1.0-web/css/brands.css" rel="stylesheet" />
         <link href="vendor/fontawesome-free-7.1.0-web/css/solid.css" rel="stylesheet" />
         <script src="vendor/plotly-3.3.0.min.js"></script>
         <script src="vendor/mqtt.min.js"></script>
+        <!-- Set the theme before first paint to avoid a light/dark flash. Reads
+             the saved preference ("system" | "light" | "dark"); js/index.js is
+             the source of truth thereafter. -->
+        <script>
+            (function () {
+                var theme = "system";
+                try {
+                    var s = JSON.parse(localStorage.getItem("settings"));
+                    if (s && s.theme) theme = s.theme;
+                } catch (e) { /* ignore malformed settings */ }
+                var dark = theme === "dark" || (theme === "system" &&
+                    window.matchMedia("(prefers-color-scheme: dark)").matches);
+                document.documentElement.dataset.theme = dark ? "dark" : "light";
+            })();
+        </script>
         <!--Local Stylesheets-->
         <link href="css/index.css" rel="stylesheet" />
     </head>
@@ -15,8 +36,8 @@
         <header>
             <div>
                 <i id="sideToggle" class="fa-solid fa-bars"></i>
-                <img src="images/HamSci.png" height="30" />
-                <div id="wordmark" style="font-style: italic;">Magnetometer Dash</div>
+                <img src="images/HamSci.png" height="25" />
+                <div id="wordmark">Magnetometer Dash</div>
                 <!-- Tabbed interface for multiple data sources (issue #21).
                      Tabs are rendered into #tabs by js/index.js. -->
                 <div id="tabber">
@@ -57,7 +78,7 @@
                         <div class="type-fields" data-type="websocket">
                             <label class="field">
                                 <span class="field-label">WebSocket URL</span>
-                                <input type="text" id="wsUrl" class="mono" placeholder="ws://host:port" />
+                                <input type="url" id="wsUrl" class="mono" placeholder="ws://host:port" />
                                 <span class="field-error" id="wsUrlErr"></span>
                             </label>
                         </div>
@@ -65,7 +86,7 @@
                         <div class="type-fields" data-type="mqtt" hidden>
                             <label class="field">
                                 <span class="field-label">Broker URL</span>
-                                <input type="text" id="mqttBroker" class="mono" placeholder="wss://broker:port" />
+                                <input type="url" id="mqttBroker" class="mono" placeholder="wss://broker:port" />
                                 <span class="field-error" id="mqttBrokerErr"></span>
                             </label>
                             <label class="field">
@@ -129,21 +150,41 @@
                             Save Rotation
                         </button>
                         <div class="subhead">
-                            <i class="fa-solid fa-wave-square"></i>
-                            <span>Moving average</span>
+                            <i id="delta" class="fa-regular fa-play"></i>
+                            <span>delta-B</span>
                         </div>
-                        <div id="filterGroup" class="select-group">
-                            <button type="button" name="off" disabled>Off</button>
-                            <button type="button" name="on">On</button>
+                        <div class="field">
+                            <span class="field-label">Calculation Method</span>
+                            <div id="dBType" class="select-group">
+                                <button type="button" name="constant" disabled>Constant dB</button>
+                                <button type="button" name="moving">Moving Average</button>
+                            </div>
                         </div>
-                        <label class="field">
-                            <span class="field-label">Window</span>
-                            <select id="filterWindow">
-                                <option value="10">10 seconds</option>
-                                <option value="30">30 seconds</option>
-                                <option value="60" selected>60 seconds</option>
-                            </select>
-                        </label>
+                        <div class="method-fields" data-type="constant">
+                            <label class="field">
+                                <span class="field-label">&Delta;H</span>
+                                <input type="number" id="dH" class="mono" placeholder="0.000" step="0.001" />
+                            </label>
+                            <label class="field">
+                                <span class="field-label">&Delta;E</span>
+                                <input type="number" id="dE" class="mono" placeholder="0.000" step="0.001" />
+                            </label>
+                            <label class="field">
+                                <span class="field-label">&Delta;Z</span>
+                                <input type="number" id="dZ" class="mono" placeholder="0.000" step="0.001" />
+                            </label>
+                        </div>
+                        <div class="method-fields" data-type="moving" hidden></div>
+                        <div class="flex-row">
+                            <button type="button" id="savedB" class="btn-secondary">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                Save dB
+                            </button>
+                            <button type="button" id="resetdB" class="btn-error">
+                                <i class="fa-solid fa-arrow-rotate-left"></i>
+                                Reset
+                            </button>
+                        </div>
                     </div>
                 </section>
 
@@ -156,13 +197,43 @@
                     </button>
                     <div class="panel-body">
                         <label class="field">
-                            <span class="field-label">Time window</span>
+                            <span class="field-label">Plot Time Range</span>
                             <select id="timerange">
                                 <option value="1m">1 Minute</option>
                                 <option value="5m">5 Minutes</option>
-                                <option value="15m">15 Minutes</option>
-                                <option value="1h" selected>1 Hour</option>
-                                <!-- <option value="4h">4 Hours</option> -->
+                                <option value="15m" selected>15 Minutes</option>
+                                <option value="30m">30 Minutes</option>
+                                <option value="1h">1 Hour</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span class="field-label">Show dB/dt</span>
+                            <div class="toggle-switch lg square">
+                                <input type="checkbox" name="dBdtToggle" id="dBdtToggle" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <div class="subhead">
+                            <i class="fa-solid fa-wave-square"></i>
+                            <span>Moving average</span>
+                        </div>
+                        <label class="field">
+                            <span class="field-label">Show Filter Line</span>
+                            <div class="toggle-switch lg square">
+                                <input type="checkbox" name="filter" id="filter" />
+                                <span class="slider"></span>
+                            </div>
+                        </label>
+                        <!-- <div id="filterGroup" class="select-group">
+                            <button type="button" name="off" disabled>Off</button>
+                            <button type="button" name="on">On</button>
+                        </div> -->
+                        <label class="field">
+                            <span class="field-label">Average Window</span>
+                            <select id="filterWindow">
+                                <option value="10">10 seconds</option>
+                                <option value="30">30 seconds</option>
+                                <option value="60" selected>60 seconds</option>
                             </select>
                         </label>
                     </div>
@@ -201,25 +272,47 @@
                                 <div class="cell-head">Temperature (&deg;C)</div>
                                 <div id="temp" class="cell-value">-</div>
                             </div>
+                            <div class="cell" style="display:none">
+                                <div class="cell-head">dB/dt (nT/s)</div>
+                                <div id="dBdt" class="cell-value">-</div>
+                            </div>
                         </div>
                     </div>
+                </div>
+                <div id="trends" class="content-box">
+                    <div class="header">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                        <span>30-Minute Trends</span>
+                    </div>
+                    <div id="sparklines"></div>
                 </div>
                 <div id="data" class="content-box">
                     <div class="header">
                         <i class="fa-solid fa-table"></i>
                         <span>Spreadsheet</span>
+                        <div class="flex-row">
+                            <button id="jsonl" class="btn-primary sm" title="Export JSONL">
+                                <i class="fa-solid fa-file-code"></i>
+                                <span class="btn-label">Export JSONL</span>
+                            </button>
+                            <button id="csv" class="btn-primary sm" title="Export CSV">
+                                <i class="fa-solid fa-file-csv"></i>
+                                <span class="btn-label">Export CSV</span>
+                            </button>
+                        </div>
                     </div>
                     <!--Table containing H, E, Z, Temp, magnitude, etc.-->
                     <div id="spreadsheet">
                         <table class="fixed-table">
                             <thead class="fixed-head">
                                 <tr>
-                                    <th>Date</th>
-                                    <th style="color:#f00">H</th>
-                                    <th style="color:#32cd32">E</th>
-                                    <th style="color:#00a6ff">Z</th>
-                                    <th style="color:#f0f">Mag</th>
-                                    <th style="color:#ff0">Temp</th>
+                                    <th data-sort="time" scope="col">Date</th>
+                                    <th data-sort="h" scope="col" style="color:#f00">H</th>
+                                    <th data-sort="e" scope="col" style="color:#32cd32">E</th>
+                                    <th data-sort="z" scope="col" style="color:#00a6ff">Z</th>
+                                    <th data-sort="mag" scope="col" style="color:#f0f">Mag</th>
+                                    <th data-sort="temp" scope="col" style="color:#ff0">Temp</th>
+                                    <th data-sort="dbdt" scope="col" class="col-dbdt" style="color:#9af8ff">dB/dt</th>
                                 </tr>
                             </thead>
                             <tbody class="scrolling">
@@ -227,19 +320,12 @@
                         </table>
                     </div>
                 </div>
-                <div id="trends" class="content-box">
-                    <div class="header">
-                        <i class="fa-solid fa-arrow-trend-up"></i>
-                        <span>Trends</span>
-                    </div>
-                    <div id="sparklines"></div>
-                </div>
             </div>
         </div>
         <footer>
             <div>
-                HamSCI &copy; 2026
-                <a href="https://github.com/HamSCI/gmag_webui/tree/main">
+                <a href="https://hamsci.org" target="_blank" title="HamSCI website">HamSCI</a> &copy; 2026
+                <a href="https://github.com/HamSCI/gmag_webui/tree/main" target="_blank" title="GitHub">
                     <i class="fa-brands fa-github"></i>
                 </a>
             </div>

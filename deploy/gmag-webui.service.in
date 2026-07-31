@@ -1,0 +1,19 @@
+[Unit]
+Description=HamSCI Magnetometer Web Dashboard
+Documentation=https://github.com/HamSCI/gmag_webui
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@REPO@
+EnvironmentFile=@REPO@/.env
+Environment=HOME=@HOME@
+ExecStart=/usr/local/bin/deno run --allow-net --allow-read --allow-env ts/main.ts
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

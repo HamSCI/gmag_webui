@@ -1,3 +1,5 @@
+/// <reference path="./index.d.ts" />
+
 /* Connection manager. Creates independent transports (WebSocket or MQTT), one
  * per data source, so several stations can stream at once. Each instance is
  * DOM-free and reports through callbacks; the app decides how to route readings
@@ -101,7 +103,7 @@
                     }
                 });
             });
-            mqttClient.on("message", (t, payload) => {
+            mqttClient.on("message", (_t, payload) => {
                 try {
                     onReading(JSON.parse(payload.toString()));
                 } catch (e) {
@@ -160,5 +162,5 @@
         return { connect, disconnect };
     }
 
-    window.MagConnection = { create: createConnection };
+    globalThis.MagConnection = { create: createConnection };
 })();

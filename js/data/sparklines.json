@@ -1,71 +1,61 @@
 {
     "traces": [
         {
-            "type": "scattergl",
+            "type": "scatter",
             "mode": "lines",
-            "marker": {
-                "color": "#f00"
-            },
             "x": [],
             "y": [],
             "line": {
-                "width": 1.5
+                "width": 1.5,
+                "color": "#f00"
             },
             "xaxis": "x",
             "yaxis": "y"
         },
         {
-            "type": "scattergl",
+            "type": "scatter",
             "mode": "lines",
-            "marker": {
-                "color": "#0f0"
-            },
             "x": [],
             "y": [],
             "line": {
-                "width": 1.5
+                "width": 1.5,
+                "color": "#0f0"
             },
             "xaxis": "x2",
             "yaxis": "y2"
         },
         {
-            "type": "scattergl",
+            "type": "scatter",
             "mode": "lines",
-            "marker": {
-                "color": "#00f"
-            },
             "x": [],
             "y": [],
             "line": {
-                "width": 1.5
+                "width": 1.5,
+                "color": "#0af"
             },
             "xaxis": "x3",
             "yaxis": "y3"
         },
         {
-            "type": "scattergl",
+            "type": "scatter",
             "mode": "lines",
-            "marker": {
-                "color": "#f0f"
-            },
             "x": [],
             "y": [],
             "line": {
-                "width": 1.5
+                "width": 1.5,
+                "color": "#f0f"
             },
             "xaxis": "x4",
             "yaxis": "y4"
         },
         {
-            "type": "scattergl",
+            "type": "scatter",
             "mode": "lines",
-            "marker": {
-                "color": "#ffae00"
-            },
             "x": [],
             "y": [],
             "line": {
-                "width": 1.5
+                "width": 1.5,
+                "color": "#ffae00"
             },
             "xaxis": "x5",
             "yaxis": "y5"
@@ -80,112 +70,172 @@
             "b": 0,
             "pad": 0
         },
-        "grid": {
-            "rows": 5,
-            "columns": 1,
-            "pattern": "independent",
-            "roworder": "top to bottom"
-        },
-        "height": 160,
         "showlegend": false,
+        "annotations": [
+            {
+                "text": "H",
+                "xref": "x domain",
+                "x": 0.02,
+                "yref": "y domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "E",
+                "xref": "x2 domain",
+                "x": 0.02,
+                "yref": "y2 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "Z",
+                "xref": "x3 domain",
+                "x": 0.02,
+                "yref": "y3 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "Mag",
+                "xref": "x4 domain",
+                "x": 0.02,
+                "yref": "y4 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            },
+            {
+                "text": "Temp",
+                "xref": "x5 domain",
+                "x": 0.02,
+                "yref": "y5 domain",
+                "y": 0.96,
+                "xanchor": "left",
+                "yanchor": "top",
+                "showarrow": false,
+                "font": {
+                    "size": 11
+                }
+            }
+        ],
         "xaxis": {
             "type": "date",
             "autorange": true,
             "showgrid": false,
             "zeroline": false,
-            "nticks": 8,
-            "anchor": "y",
             "showticklabels": false,
             "showline": false,
-            "ticks": ""
+            "ticks": "",
+            "anchor": "y",
+            "domain": [0.0, 0.5]
         },
         "xaxis2": {
             "type": "date",
             "autorange": true,
             "showgrid": false,
             "zeroline": false,
-            "nticks": 8,
-            "anchor": "y2",
             "showticklabels": false,
             "showline": false,
             "ticks": "",
-            "matches": "x"
+            "anchor": "y2",
+            "matches": "x",
+            "domain": [0.0, 0.5]
         },
         "xaxis3": {
             "type": "date",
             "autorange": true,
             "showgrid": false,
             "zeroline": false,
-            "nticks": 8,
-            "anchor": "y3",
             "showticklabels": false,
             "showline": false,
             "ticks": "",
-            "matches": "x"
+            "anchor": "y3",
+            "matches": "x",
+            "domain": [0.0, 0.5]
         },
         "xaxis4": {
             "type": "date",
             "autorange": true,
             "showgrid": false,
             "zeroline": false,
-            "nticks": 8,
-            "anchor": "y4",
             "showticklabels": false,
             "showline": false,
             "ticks": "",
-            "matches": "x"
+            "anchor": "y4",
+            "matches": "x",
+            "domain": [0.5, 1.0]
         },
         "xaxis5": {
             "type": "date",
             "autorange": true,
             "showgrid": false,
             "zeroline": false,
-            "nticks": 8,
-            "anchor": "y5",
             "showticklabels": false,
             "showline": false,
             "ticks": "",
-            "matches": "x"
+            "anchor": "y5",
+            "matches": "x",
+            "domain": [0.5, 1.0]
         },
         "yaxis": {
-            "domain": [
-                0.81,
-                1.0
-            ],
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
             "anchor": "x",
-            "showgrid": false
+            "domain": [0.67, 1.0]
         },
         "yaxis2": {
-            "domain": [
-                0.61,
-                0.8
-            ],
-            "anchor": "x",
-            "showgrid": false
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x2",
+            "domain": [0.33, 0.67]
         },
         "yaxis3": {
-            "domain": [
-                0.41,
-                0.6
-            ],
-            "anchor": "x",
-            "showgrid": false
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x3",
+            "domain": [0.0, 0.33]
         },
         "yaxis4": {
-            "domain": [
-                0.21,
-                0.4
-            ],
-            "anchor": "x",
-            "showgrid": false
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x4",
+            "domain": [0.67, 1.0]
         },
         "yaxis5": {
-            "domain": [
-                0.00,
-                0.2
-            ],
-            "anchor": "x",
-            "showgrid": false
+            "showgrid": false,
+            "zeroline": false,
+            "showticklabels": false,
+            "ticks": "",
+            "anchor": "x5",
+            "domain": [0.33,0.67]
         }
     },
     "config": {

@@ -1,4 +1,11 @@
-import { createMsgResp } from "./common.ts";
+import "@std/dotenv/load";
+
+function createMsgResp(status: number, msg: string): Response {
+    return new Response(JSON.stringify({ message: msg, }), {
+        status,
+        headers: { "Content-Type": "application/json" },
+    });
+}
 
 function getContentType(path: string): string {
     if (path === "/" || path.endsWith(".html")) {
@@ -24,7 +31,7 @@ if (import.meta.main) {
     const port = typeof portRaw !== "undefined"
         ? parseInt(portRaw)
         : 8000;
-    Deno.serve({ port, hostname }, async (req: Request) => {
+    Deno.serve({ port, hostname }, (req: Request) => {
         const url = new URL(req.url);
         const { pathname } = url;
 

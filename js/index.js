@@ -1,19 +1,20 @@
 /// <reference path="./index.d.ts" />
-import Measurement from "./Measurement.js";
-import { buildSparklineTraces, reduceBucket } from "./sparklines.js";
-import { trailingAverageAt, movingAverage } from "./filter.js";
+import Measurement from "./object/Measurement.js";
+import { buildSparklineTraces, minMaxOfBucket, reduceBucket } from "./sparklines.js";
+import { trailingAverageAt, slidingWindowMeans } from "./filter.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
+/** @typedef {import("./object/Vector.js").default} Vector */
 
 const timeRanges = {
     "1m": 60,
     "5m": 300,
     "15m": 900,
+    "30m": 1800,
     "1h": 3600,
-    // "4h": 14400,
 };
 const PLOTS_BUF_MAX = 3600; // 1 hour max buffer
-const SPARK_BUF_MAX = 100;
+const SPARK_BUF_MAX = 180;
 const SL_BUCKET_MAX = 10;
 const MAX_SOURCES = 6; // tab cap, for performance
 
@@ -33,10 +34,12 @@ const RAW_FADED_OPACITY = 0.25;
 // Moving average and time window are shared across all sources; each source
 // (tab) owns its own connection config and coordinate transform.
 
-/** @returns {string} a unique id (falls back when crypto is unavailable) */
+/**
+ * @returns {string} a unique id (falls back when crypto is unavailable)
+ */
 function uid() {
-    if (window.crypto && window.crypto.randomUUID) {
-        return window.crypto.randomUUID();
+    if (crypto && crypto.randomUUID) {
+        return crypto.randomUUID();
     }
     return "s-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -53,14 +56,19 @@ function makeSource(name = "Source 1") {
         websocket: { url: "" },
         mqtt: { broker: "", topic: "", username: "", password: "" },
         transform: { x: 0, y: 0, z: 0 },
+        dB: { moving: false, h: 0, e: 0, z: 0 },
     };
 }
 
-/** @returns {DashSettings} */
+/**
+ * @returns {DashSettings}
+ */
 function defaultSettings() {
     const src = makeSource();
     return {
-        displayWindow: "1h",
+        displayWindow: "15m",
+        dBdt: false,
+        theme: "system",
         filter: { enabled: false, windowSec: 60 },
         sources: [src],
         activeSourceId: src.id,
@@ -79,6 +87,12 @@ function migrateSettings(s) {
     if (!s.displayWindow) {
         s.displayWindow = "1h";
     }
+    if (!("dBdt" in s)) {
+        s.dBdt = false;
+    }
+    if (!("theme" in s)) {
+        s.theme = "system";
+    }
     const hasSources = Array.isArray(s.sources) && s.sources.length > 0 &&
         s.sources[0] && s.sources[0].id;
     if (!hasSources) {
@@ -95,6 +109,7 @@ function migrateSettings(s) {
                 password: (old.mqtt && old.mqtt.password) || "",
             },
             transform: s.transform || { x: 0, y: 0, z: 0 },
+            dB: s.dB || { moving: false, h: 0, e: 0, z: 0 },
         }];
         s.activeSourceId = s.sources[0].id;
     }
@@ -110,8 +125,8 @@ function migrateSettings(s) {
 /** @type {DashSettings} */
 let settings;
 try {
-    settings = JSON.parse(window.localStorage.getItem("settings"));
-} catch (e) {
+    settings = JSON.parse(localStorage.getItem("settings"));
+} catch (_) {
     settings = null;
 }
 if (!settings) {
@@ -120,15 +135,20 @@ if (!settings) {
 migrateSettings(settings);
 
 function saveSettings() {
-    window.localStorage.setItem("settings", JSON.stringify(settings));
+    localStorage.setItem("settings", JSON.stringify(settings));
 }
 saveSettings(); // persist the normalized shape
 
-/** @param {string} id @returns {Source|undefined} */
+/**
+ * @param {string} id
+ * @returns {Source|undefined}
+ */
 function getSource(id) {
     return settings.sources.find(s => s.id === id);
 }
-/** @returns {Source} */
+/**
+ * @returns {Source}
+ */
 function activeSource() {
     return getSource(settings.activeSourceId);
 }
@@ -141,7 +161,7 @@ function activeSource() {
  * @typedef {object} Session
  * @prop {string} id
  * @prop {Measurement[]} measurements
- * @prop {Measurement[]} sparklines
+ * @prop {{avg: Measurement, lo: Measurement, hi: Measurement}[]} sparklines
  * @prop {Measurement[]} sBucket
  * @prop {?object} connection live MagConnection instance, or null
  * @prop {number} status last status code (0-5)
@@ -150,7 +170,10 @@ function activeSource() {
 /** @type {Map<string, Session>} */
 const sessions = new Map();
 
-/** @param {Source} source @returns {Session} */
+/**
+ * @param {Source} source
+ * @returns {Session}
+ */
 function makeSession(source) {
     return {
         id: source.id,
@@ -186,15 +209,78 @@ let updateLock = false;
 // during live updates within a source.
 // Deep-clone: Plotly writes computed axis ranges back into the layout object it
 // is given, so a shared layout would carry one source's ranges into the next.
+// Chart surface colors per theme (issue #16). The saturated series/trace colors
+// are theme-independent and stay in the plot JSON; only the paper/plot
+// backgrounds, gridlines, and font switch.
+function plotTheme() {
+    const dark = document.documentElement.dataset.theme === "dark";
+    return dark
+        ? { paper: "#1e1e1e", plot: "#252525", grid: "#3a3a3a", font: "#e8e8e8", border: "#4d4d4d" }
+        : { paper: "#ffffff", plot: "#f7f9fb", grid: "#e5e7eb", font: "#1a1a1a", border: "#cbd5e1" };
+}
+
+// Paint the active theme's colors onto a freshly cloned layout so every newPlot
+// (initial draw, source switch) renders in the current theme.
+function themeLayout(layout) {
+    const t = plotTheme();
+    layout.paper_bgcolor = t.paper;
+    layout.plot_bgcolor = t.plot;
+    layout.font = { ...(layout.font || {}), color: t.font };
+    for (const k of Object.keys(layout)) {
+        if (/^[xy]axis\d*$/.test(k) && layout[k] && typeof layout[k] === "object") {
+            layout[k].gridcolor = t.grid;
+        }
+    }
+    if (layout.legend) {
+        layout.legend.font = { ...(layout.legend.font || {}), color: t.font };
+    }
+    // Per-subplot separator boxes (plots.json shapes) track the theme.
+    if (Array.isArray(layout.shapes)) {
+        for (const s of layout.shapes) {
+            s.line = { ...(s.line || {}), color: t.border };
+        }
+    }
+    return layout;
+}
+
+// Re-tint both existing plots in place (no trace/range rebuild) on theme toggle.
+function retintPlots() {
+    const t = plotTheme();
+    for (const div of [plotsDiv, sparkDiv]) {
+        if (!div || !div.layout) {
+            continue;
+        }
+        const upd = {
+            paper_bgcolor: t.paper,
+            plot_bgcolor: t.plot,
+            "font.color": t.font,
+        };
+        for (const k of Object.keys(div.layout)) {
+            if (/^[xy]axis\d*$/.test(k)) {
+                upd[k + ".gridcolor"] = t.grid;
+            }
+        }
+        if (div.layout.legend) {
+            upd["legend.font.color"] = t.font;
+        }
+        if (Array.isArray(div.layout.shapes)) {
+            div.layout.shapes.forEach((_, i) => {
+                upd[`shapes[${i}].line.color`] = t.border;
+            });
+        }
+        Plotly.relayout(div, upd);
+    }
+}
+
 function mainLayout() {
     const layout = structuredClone(plotsInit.layout);
     layout.uirevision = settings.activeSourceId;
-    return layout;
+    return themeLayout(layout);
 }
 function sparkLayout() {
     const layout = structuredClone(slInit.layout);
     layout.uirevision = settings.activeSourceId;
-    return layout;
+    return themeLayout(layout);
 }
 
 /**
@@ -207,17 +293,23 @@ function attachPlotHandlers() {
         plotsDiv.removeAllListeners("plotly_doubleclick");
     }
     plotsDiv.on("plotly_relayout", ev => {
-        if (!updateLock &&
-            "xaxis.range[0]" in ev &&
-            "xaxis.range[1]" in ev) {
+        // A user-driven change to the x range turns off autofollow so the view
+        // stays put instead of snapping back to the trailing window on the next
+        // reading. Zoom/drag inside the plot emits xaxis.range[0]/[1]; dragging
+        // the range slider emits xaxis.range (an array). Our own updateRange()
+        // also emits xaxis.range, but it holds updateLock across the
+        // asynchronously delivered relayout event, so those are skipped here.
+        if (updateLock) {
+            return;
+        }
+        if ("xaxis.range[0]" in ev || "xaxis.range[1]" in ev ||
+            "xaxis.range" in ev) {
             autofollow = false;
         }
     });
     plotsDiv.on("plotly_doubleclick", () => {
         autofollow = true;
-        updateLock = true;
-        updateRange();
-        updateLock = false;
+        updateRange(); // self-locks against the autofollow handler
     });
 }
 
@@ -242,17 +334,60 @@ function drawSparkPlot(traces) {
 drawMainPlot(structuredClone(plotsInit.traces));
 drawSparkPlot(structuredClone(slInit.traces));
 
+// The "x unified" hover readout is shown on tap on touch devices and otherwise
+// lingers until the next tap inside the plot. Dismiss it whenever the user taps
+// anywhere outside the plot so a stale readout doesn't stay pinned over the
+// chart (issue #27). Registered once (not in attachPlotHandlers, which re-runs
+// per newPlot) since it targets the document, not the plot's event registry.
+document.addEventListener("pointerdown", ev => {
+    if (!plotsDiv.contains(ev.target)) {
+        Plotly.Fx.unhover(plotsDiv);
+    }
+});
+
 /**
  * Applies the active source's coordinate transform to a measurement's HEZ.
  * @param {Measurement} m
  * @returns {Vector} the rotated HEZ vector ready for display
  */
 function rotatedHEZ(m) {
-    const { x, y, z } = activeSource().transform;
+    const { transform: { x, y, z } } = activeSource();
     return m.HEZ
         .rotate("x", x, false)
         .rotate("y", y, false)
         .rotate("z", z, false);
+}
+
+/**
+ * Subtracts the active source's delta-B baseline from a (rotated HEZ) vector.
+ * The baseline is a fixed HEZ triple: for the Constant method it's the values
+ * the user typed; for the Moving Average method it's the trailing moving
+ * average snapshotted when the user saved (see the Save dB handler). Either way
+ * this is a cheap fixed subtraction — no per-point recomputation.
+ * @param {Vector} v a rotated HEZ vector
+ * @returns {Vector} v - baseline
+ */
+function applyDeltaB(v) {
+    const { dB: { h, e, z } } = activeSource();
+    return v.delta(h, e, z);
+}
+
+/** @returns {boolean} whether a non-zero delta-B baseline is set */
+function usesDeltaB() {
+    const { dB: { h, e, z } } = activeSource();
+    return h !== 0 || e !== 0 || z !== 0;
+}
+
+/**
+ * The display-space HEZ vector for a measurement: the active source's rotation,
+ * plus the delta-B baseline when one is set. Both the main plot and the Trends
+ * sparklines render this, so the two stay consistent.
+ * @param {Measurement} m
+ * @returns {Vector} the display HEZ vector
+ */
+function displayHEZ(m) {
+    const v = rotatedHEZ(m);
+    return usesDeltaB() ? applyDeltaB(v) : v;
 }
 
 /** Resets both plots to their initial empty state (full re-init). */
@@ -266,19 +401,35 @@ function resetPlots() {
  * the active source's buffer and redraws traces 5-9 in a single restyle.
  */
 function recomputeFiltered() {
-    const smoothed = movingAverage(
-        activeSession().measurements, settings.filter.windowSec);
-    const x = smoothed.map(m => m.ts);
-    const vectors = smoothed.map(rotatedHEZ);
+    const ms = activeSession().measurements;
+    const windowSec = settings.filter.windowSec;
+    const db = usesDeltaB();
+
+    // One O(N) pass: build per-sample displayed components + magnitude, then
+    // sliding-window-average all five series at once. H/E/Z are the vector
+    // average (linear); magnitude averages the per-sample magnitude (so it
+    // doesn't collapse under delta-B). No per-point Measurement construction.
+    const n = ms.length;
+    const times = new Array(n);
+    const x = new Array(n);
+    const H = new Array(n), E = new Array(n), Z = new Array(n);
+    const T = new Array(n), M = new Array(n);
+    for (let i = 0; i < n; i++) {
+        const m = ms[i];
+        let v = rotatedHEZ(m);
+        if (db) {
+            v = applyDeltaB(v);
+        }
+        times[i] = m.ts.getTime();
+        x[i] = m.ts;
+        H[i] = v[0]; E[i] = v[1]; Z[i] = v[2];
+        T[i] = m.celsius; M[i] = v.magnitude;
+    }
+    const [mh, me, mz, mt, mmag] =
+        slidingWindowMeans(times, [H, E, Z, T, M], windowSec);
     Plotly.restyle(plotsDiv, {
         x: FILTER_TRACES.map(() => x),
-        y: [
-            vectors.map(v => v[0]),
-            vectors.map(v => v[1]),
-            vectors.map(v => v[2]),
-            vectors.map(v => parseFloat(v.magnitude.toFixed(3))),
-            smoothed.map(m => m.celsius),
-        ],
+        y: [mh, me, mz, mmag.map(v => parseFloat(v.toFixed(3))), mt],
     }, FILTER_TRACES);
 }
 
@@ -302,19 +453,28 @@ function refreshFilter() {
 }
 
 function updateCoordGraphs() {
-    const vectors = activeSession().measurements.map(rotatedHEZ);
-    // Only the coordinate graphs actually change; magnitude is rotation-invariant.
-    /** @type {[0, 1, 2]} */
-    const traces = [0, 1, 2];
+    const raw = activeSession().measurements.map(rotatedHEZ);
+    const vectors = usesDeltaB() ? raw.map(applyDeltaB) : raw;
+    // Always restyle H/E/Z and magnitude together, so toggling dB on or off
+    // never leaves a stale trace behind (magnitude in particular).
     Plotly.restyle(plotsDiv, {
-        y: traces.map(t => vectors.map(v => v[t]))
-    }, traces);
-    // The smoothed overlay depends on the same rotation, so rebuild it too.
+        y: [
+            vectors.map(v => v[0]),
+            vectors.map(v => v[1]),
+            vectors.map(v => v[2]),
+            vectors.map(v => parseFloat(v.magnitude.toFixed(3))),
+        ],
+    }, [0, 1, 2, 3]);
+    // The smoothed overlay depends on the same data, so rebuild it too.
     if (settings.filter.enabled) {
         recomputeFiltered();
     }
 }
 
+// All five rows now share one x-axis, so a single xaxis.range drives them all.
+// Plotly delivers plotly_relayout asynchronously (after this call returns), so
+// we hold updateLock until the relayout settles — otherwise the autofollow
+// handler would mistake our own snap-back for a user pan and disable following.
 function updateRange() {
     const ms = activeSession().measurements;
     if (ms.length === 0) {
@@ -323,17 +483,11 @@ function updateRange() {
     const { ts: latest } = ms[ms.length - 1];
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
     const latestDiff = new Date(latest.getTime() - (seconds * 1000));
-    try {
-        // This keeps throwing a TypeError but it doesn't seem to affect
-        // execution.
-        Plotly.relayout(plotsDiv, {
-            "xaxis.range":  [latestDiff, latest],
-            "xaxis2.range": [latestDiff, latest],
-            "xaxis3.range": [latestDiff, latest],
-            "xaxis4.range": [latestDiff, latest],
-            "xaxis5.range": [latestDiff, latest],
-        });
-    } catch (e) {}
+    updateLock = true;
+    Promise.resolve(
+        Plotly.relayout(plotsDiv, { "xaxis.range": [latestDiff, latest] }))
+        .catch(() => {})
+        .finally(() => { updateLock = false; });
 }
 
 /**
@@ -341,7 +495,7 @@ function updateRange() {
  * @param {Measurement} measurement
  */
 function extendAllTraces(measurement) {
-    const dispVec = rotatedHEZ(measurement);
+    const dispVec = displayHEZ(measurement);
     const { ts } = measurement;
     Plotly.extendTraces(plotsDiv, {
         x: [[ts], [ts], [ts], [ts], [ts]],
@@ -358,16 +512,31 @@ function extendAllTraces(measurement) {
     // computed: we can append the newest one rather than rebuilding the series.
     if (settings.filter.enabled) {
         const ms = activeSession().measurements;
-        const smoothed = trailingAverageAt(
-            ms, ms.length - 1, settings.filter.windowSec);
-        const filtVec = rotatedHEZ(smoothed);
+        const windowSec = settings.filter.windowSec;
+        const db = usesDeltaB();
+        const smoothed = trailingAverageAt(ms, ms.length - 1, windowSec);
+        // H/E/Z: vector moving average.
+        const filtVec = db
+            ? applyDeltaB(rotatedHEZ(smoothed))
+            : rotatedHEZ(smoothed);
+        // Magnitude: trailing average of the displayed magnitude (see
+        // recomputeFiltered), computed over the window ending at this sample.
+        const startMs = measurement.ts.getTime() - (windowSec * 1000);
+        let magSum = 0, magCount = 0;
+        for (let i = ms.length - 1; i >= 0; i--) {
+            if (ms[i].ts.getTime() < startMs) break;
+            const v = db ? applyDeltaB(rotatedHEZ(ms[i])) : rotatedHEZ(ms[i]);
+            magSum += v.magnitude;
+            magCount++;
+        }
+        const filtMag = magCount ? magSum / magCount : 0;
         Plotly.extendTraces(plotsDiv, {
             x: [[ts], [ts], [ts], [ts], [ts]],
             y: [
                 [filtVec[0]],
                 [filtVec[1]],
                 [filtVec[2]],
-                [parseFloat(filtVec.magnitude.toFixed(3))],
+                [parseFloat(filtMag.toFixed(3))],
                 [smoothed.celsius],
             ],
         }, FILTER_TRACES);
@@ -379,69 +548,320 @@ function updateSparks() {
     while (session.sparklines.length > SPARK_BUF_MAX) {
         session.sparklines.shift();
     }
-    const newSlTraces = buildSparklineTraces(session.sparklines);
+    const newSlTraces = buildSparklineTraces(session.sparklines, displayHEZ);
     Plotly.react(sparkDiv, newSlTraces, sparkLayout(), slInit.config);
 }
 
+/** Rebuilds the active sparklines after a transform change (rotation/delta-B). */
+function refreshSparks() {
+    if (activeSession().sparklines.length > 0) {
+        updateSparks();
+    }
+}
+
 /**
- * Builds the spreadsheet table row for a measurement, applying the active
- * source's coordinate transform. The moving-average filter intentionally does
- * not affect the spreadsheet — it always shows the rotated raw reading.
+ * Rate of change of the field magnitude between two readings, in nT/s. Uses the
+ * rotated raw magnitude (independent of any delta-B baseline) over the actual
+ * elapsed time, so it stays correct even if the feed isn't exactly 1 Hz.
+ * @param {Measurement} curr
+ * @param {Measurement} prev
+ * @returns {number} nT/s (0 if the timestamps don't advance)
+ */
+function dBdtValue(curr, prev) {
+    const dtSec = (curr.ts.getTime() - prev.ts.getTime()) / 1000;
+    if (dtSec <= 0) {
+        return 0;
+    }
+    return (rotatedHEZ(curr).magnitude - rotatedHEZ(prev).magnitude) / dtSec;
+}
+
+/**
+ * Formats a value with an explicit sign (+, -, or ± for zero).
+ * @param {number} v
+ * @returns {string}
+ */
+function formatSigned(v) {
+    const s = v.toFixed(3);
+    if (parseFloat(s) === 0) {
+        return `±${(0).toFixed(3)}`;
+    }
+    return v > 0 ? `+${s}` : s;
+}
+
+/**
+ * Builds a spreadsheet row for a measurement, applying rotation and (if set)
+ * the delta-B baseline. The trailing dB/dt cell is computed against the
+ * previous reading and is shown/hidden via the #spreadsheet `.show-dbdt` class.
  * @param {Measurement} measurement
+ * @param {Measurement} [prev] the previous reading, for dB/dt
  * @returns {string} the `<tr>` markup for this measurement
  */
-function spreadsheetRowHTML(measurement) {
-    // Local time on the client end, for the operator's convenience.
-    const date = new Intl.DateTimeFormat("en-US", {
-        hour12: false,
-        month: "numeric",
-        day: "numeric",
-        year: "2-digit",
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit"
-    }).format(measurement.ts);
+// One shared formatter — creating a new Intl.DateTimeFormat per row was a major
+// cost at day-size.
+const DATE_FMT = new Intl.DateTimeFormat("en-US", {
+    hour12: false, month: "numeric", day: "numeric", year: "2-digit",
+    hour: "numeric", minute: "2-digit", second: "2-digit",
+});
 
-    const dispVector = rotatedHEZ(measurement);
-
+/**
+ * Builds one spreadsheet row. `d` is the display index (newest-first), used for
+ * stable zebra striping under virtualization.
+ * @param {Measurement} measurement
+ * @param {Measurement} [prev] the previous reading in time, for dB/dt
+ * @param {number} d display index (0 = newest)
+ * @returns {string} the `<tr>` markup
+ */
+function spreadsheetRowHTML(measurement, prev, d) {
+    const date = DATE_FMT.format(measurement.ts);
+    const v = displayHEZ(measurement);
+    const dBdt = prev ? formatSigned(dBdtValue(measurement, prev)) : "–";
+    const stripe = d % 2 ? ' class="stripe"' : "";
     return `
-        <tr>
+        <tr${stripe}>
             <td>${date}</td>
-            <td>${dispVector[0].toFixed(3)}</td>
-            <td>${dispVector[1].toFixed(3)}</td>
-            <td>${dispVector[2].toFixed(3)}</td>
-            <td>${dispVector.magnitude.toFixed(3)}</td>
+            <td>${v[0].toFixed(3)}</td>
+            <td>${v[1].toFixed(3)}</td>
+            <td>${v[2].toFixed(3)}</td>
+            <td>${v.magnitude.toFixed(3)}</td>
             <td>${measurement.celsius.toFixed(2)}</td>
+            <td class="col-dbdt">${dBdt}</td>
         </tr>`;
 }
 
-/**
- * Prepends a measurement's row to the top of the spreadsheet (newest first).
- * @param {Measurement} measurement
- */
-function addSpreadsheetRow(measurement) {
-    document.querySelector("#spreadsheet table tbody").insertAdjacentHTML(
-        "afterbegin", spreadsheetRowHTML(measurement));
-    // TODO: Remove last row once we're at max buffer size?
+// ---- Spreadsheet virtualization ---------------------------------------------
+// The buffer can hold a full day (86,400 rows); rendering every row is ~7.5s +
+// huge memory. Instead we render only the rows visible in the scroll viewport
+// (plus a small overscan) and reserve the off-screen height with two spacer
+// rows. (Padding on the scrolling tbody can't be used here: as a flex child it
+// keeps its own padding in its min-size, so a day-size padding would blow past
+// the flex bound and defeat the scroll viewport — a spacer <tr> is shrinkable.)
+const spreadsheetBody = document.querySelector("#spreadsheet table tbody");
+const ROW_OVERSCAN = 8;
+let rowHeight = 0;
+
+// ---- Spreadsheet sorting ----------------------------------------------------
+// The table defaults to newest-first (time descending), which the virtualization
+// renders directly via idx = n-1-d without materializing an order. Clicking a
+// column header sorts by that column: we build an explicit permutation
+// (display position -> measurements index) once and cache it, rebuilding only
+// when the data, view settings, or sort change — never on every scroll frame.
+const sortState = { col: "time", dir: "desc" };
+let sortOrder = null;       // cached permutation for non-default sorts
+let sortOrderValid = false; // false => rebuild on next render
+
+/** Marks the cached sort order stale (data/settings/sort changed). */
+function invalidateSortOrder() {
+    sortOrderValid = false;
 }
 
-/** Rebuilds every spreadsheet row from the active source's buffer. */
-function rebuildSpreadsheet() {
-    // measurements run oldest -> newest, but the table shows newest at the top.
-    document.querySelector("#spreadsheet table tbody").innerHTML =
-        activeSession().measurements.map(spreadsheetRowHTML).reverse().join("");
+/** Whether the sort is the default newest-first (no permutation needed). */
+function isDefaultSort() {
+    return sortState.col === "time" && sortState.dir === "desc";
 }
+
+/**
+ * The sortable value for measurement index `i` under the active column, in the
+ * same display space as the rendered cells (rotation + delta-B). Returns NaN
+ * where undefined (e.g. dB/dt of the first reading), which sorts to the end.
+ * @param {Measurement[]} ms @param {number} i @returns {number}
+ */
+function sortValueAt(ms, i) {
+    switch (sortState.col) {
+        case "h": return displayHEZ(ms[i])[0];
+        case "e": return displayHEZ(ms[i])[1];
+        case "z": return displayHEZ(ms[i])[2];
+        case "mag": return displayHEZ(ms[i]).magnitude;
+        case "temp": return ms[i].celsius;
+        case "dbdt": return i > 0 ? dBdtValue(ms[i], ms[i - 1]) : NaN;
+        default: return ms[i].ts.getTime();   // "time"
+    }
+}
+
+/**
+ * Builds the display-position -> measurements-index permutation for the active
+ * sort. Stable (ties keep chronological order); NaN keys sort last in either
+ * direction. Keys are precomputed so displayHEZ/dBdt run once per row.
+ * @param {Measurement[]} ms @param {number} n @returns {number[]}
+ */
+function buildSortOrder(ms, n) {
+    const keys = new Array(n);
+    const order = new Array(n);
+    for (let i = 0; i < n; i++) {
+        keys[i] = sortValueAt(ms, i);
+        order[i] = i;
+    }
+    const sign = sortState.dir === "asc" ? 1 : -1;
+    order.sort((a, b) => {
+        const ka = keys[a], kb = keys[b];
+        const aNan = Number.isNaN(ka), bNan = Number.isNaN(kb);
+        if (aNan || bNan) {
+            return aNan === bNan ? 0 : (aNan ? 1 : -1);   // NaN always last
+        }
+        if (ka < kb) return -sign;
+        if (ka > kb) return sign;
+        return 0;
+    });
+    return order;
+}
+
+/**
+ * The active display order, or null for the default newest-first fast path.
+ * Cached and rebuilt only when marked stale.
+ * @param {Measurement[]} ms @param {number} n @returns {number[] | null}
+ */
+function currentSortOrder(ms, n) {
+    if (isDefaultSort()) {
+        return null;
+    }
+    if (!sortOrderValid || !sortOrder || sortOrder.length !== n) {
+        sortOrder = buildSortOrder(ms, n);
+        sortOrderValid = true;
+    }
+    return sortOrder;
+}
+
+/** A spacer row reserving `px` of off-screen scroll height. */
+function spacerRow(px) {
+    return px > 0
+        ? `<tr class="spacer" style="height:${px}px"><td colspan="7"></td></tr>`
+        : "";
+}
+
+/**
+ * Builds rows for display positions [first, last). `order` maps a display
+ * position to its measurements index (from the active sort), or is null for the
+ * default newest-first view (idx = n-1-d). Either way the dB/dt cell is computed
+ * against the row's chronological predecessor (ms[idx-1]), independent of sort.
+ * @param {number[]|null} order @param {Measurement[]} ms
+ * @param {number} n @param {number} first @param {number} last
+ */
+function windowRows(order, ms, n, first, last) {
+    let s = "";
+    for (let d = first; d < last; d++) {
+        const idx = order ? order[d] : n - 1 - d;
+        s += spreadsheetRowHTML(ms[idx], ms[idx - 1], d);
+    }
+    return s;
+}
+
+/** Renders only the rows visible at the current scroll position. */
+function renderSpreadsheet() {
+    const ms = activeSession().measurements;
+    const n = ms.length;
+    if (n === 0) {
+        spreadsheetBody.innerHTML = "";
+        return;
+    }
+    const order = currentSortOrder(ms, n);
+    if (!rowHeight) {
+        // Measure a real row once to size the virtual scroll.
+        spreadsheetBody.innerHTML = windowRows(order, ms, n, 0, Math.min(n, 40));
+        rowHeight = (spreadsheetBody.firstElementChild &&
+            spreadsheetBody.firstElementChild.offsetHeight) || 20;
+    }
+    const viewH = spreadsheetBody.clientHeight || 400;
+    const first = Math.max(0,
+        Math.floor(spreadsheetBody.scrollTop / rowHeight) - ROW_OVERSCAN);
+    const count = Math.ceil(viewH / rowHeight) + ROW_OVERSCAN * 2;
+    const last = Math.min(n, first + count);
+    spreadsheetBody.innerHTML =
+        spacerRow(first * rowHeight) +
+        windowRows(order, ms, n, first, last) +
+        spacerRow((n - last) * rowHeight);
+}
+
+/** Re-renders the visible window from the active buffer (keeps scroll pos). */
+function rebuildSpreadsheet() {
+    invalidateSortOrder();   // rotation/delta-B/filter may have changed the keys
+    renderSpreadsheet();
+}
+
+/** Renders from the top (newest) — used on file load and tab switch. */
+function resetSpreadsheet() {
+    invalidateSortOrder();
+    spreadsheetBody.scrollTop = 0;
+    renderSpreadsheet();
+}
+
+/** Live: a newest reading arrived; keep the user's place unless at the top. */
+function addSpreadsheetRow() {
+    invalidateSortOrder();   // the new reading must be re-placed in a custom sort
+    if (isDefaultSort() && rowHeight && spreadsheetBody.scrollTop >= rowHeight) {
+        // Newest-first: content grows at the top; shift to stay on same rows.
+        // (A custom sort can insert anywhere, so don't assume top growth.)
+        spreadsheetBody.scrollTop += rowHeight;
+    }
+    renderSpreadsheet();
+}
+
+// Re-render the window as the user scrolls (throttled to one per frame).
+let scrollRaf = 0;
+spreadsheetBody.addEventListener("scroll", () => {
+    if (scrollRaf) {
+        return;
+    }
+    scrollRaf = requestAnimationFrame(() => {
+        scrollRaf = 0;
+        renderSpreadsheet();
+    });
+});
+
+// ---- Spreadsheet header: click to sort --------------------------------------
+const spreadsheetHead = document.querySelector("#spreadsheet thead");
+
+/** Reflects the active sort on the header cells (drives the caret via CSS). */
+function syncSortHeader() {
+    for (const th of spreadsheetHead.querySelectorAll("th[data-sort]")) {
+        th.setAttribute("aria-sort",
+            th.dataset.sort === sortState.col
+                ? (sortState.dir === "asc" ? "ascending" : "descending")
+                : "none");
+    }
+}
+
+spreadsheetHead.addEventListener("click", ev => {
+    const th = ev.target.closest("th[data-sort]");
+    if (!th) {
+        return;
+    }
+    const col = th.dataset.sort;
+    if (col === sortState.col) {
+        sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    } else {
+        sortState.col = col;
+        // Time defaults to newest-first; value columns to ascending.
+        sortState.dir = col === "time" ? "desc" : "asc";
+    }
+    syncSortHeader();
+    resetSpreadsheet();   // rebuilds the order, scrolls to top, re-renders
+});
+
+syncSortHeader();
 
 /**
  * @param {Measurement} m
  */
 function updateCurrentTable(m) {
-    const dispVec = rotatedHEZ(m);
+    const { measurements: ms } = activeSession();
+    const dispVec = displayHEZ(m);
+    const dBdt = ms.length > 1
+        ? formatSigned(dBdtValue(m, ms[ms.length - 2]))
+        : "±0.000";
+
     document.getElementById("h").textContent = dispVec[0].toFixed(3);
     document.getElementById("e").textContent = dispVec[1].toFixed(3);
     document.getElementById("z").textContent = dispVec[2].toFixed(3);
-    document.getElementById("mag").textContent = m.HEZ.magnitude.toFixed(3);
+    document.getElementById("mag").textContent = dispVec.magnitude.toFixed(3);
     document.getElementById("temp").textContent = m.celsius.toFixed(2);
+    document.getElementById("dBdt").textContent = dBdt;
+}
+
+/** Re-renders the Current Reading panel from the newest reading, if any. */
+function refreshCurrentReading() {
+    const ms = activeSession().measurements;
+    if (ms.length > 0) {
+        updateCurrentTable(ms[ms.length - 1]);
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -510,7 +930,12 @@ function ingest(session, m) {
     }
     session.sBucket.push(m);
     if (session.sBucket.length >= SL_BUCKET_MAX) {
-        session.sparklines.push(reduceBucket(session.sBucket));
+        // Keep the bucket average (the line) plus its min/max corner vectors
+        // (the envelope band), so short excursions within a bucket aren't
+        // averaged away in the Trends sparklines.
+        const avg = reduceBucket(session.sBucket);
+        const [lo, hi] = minMaxOfBucket(session.sBucket);
+        session.sparklines.push({ avg, lo, hi });
         session.sBucket.length = 0;
         while (session.sparklines.length > SPARK_BUF_MAX) {
             session.sparklines.shift();
@@ -557,9 +982,7 @@ function handleReading(id, json) {
             updateSparks();
         }
         if (autofollow) {
-            updateLock = true;
             updateRange();
-            updateLock = false;
         }
     }
 }
@@ -592,7 +1015,10 @@ function handleHardwareError(session) {
     }
 }
 
-/** @param {string} id @returns {{onReading: function, onStatus: function}} */
+/**
+ * @param {string} id
+ * @returns {{onReading: function, onStatus: function}}
+ */
 function connectionHandlers(id) {
     return {
         onReading: json => handleReading(id, json),
@@ -609,7 +1035,7 @@ function isConfigured(src) {
         return isValidWsUrl(src.websocket.url);
     }
     if (src.type === "mqtt") {
-        return isValidWsUrl(src.mqtt.broker) && !!src.mqtt.topic;
+        return isValidBrokerUrl(src.mqtt.broker) && !!src.mqtt.topic;
     }
     return false; // file: no live transport
 }
@@ -630,14 +1056,14 @@ function connectSession(session) {
     if (session.connection) {
         session.connection.disconnect();
     }
-    session.connection = window.MagConnection.create(
+    session.connection = MagConnection.create(
         src, connectionHandlers(session.id));
     session.connection.connect();
 }
 
 /** Clears the shared view (spreadsheet + plots) for the active source. */
 function clearActiveView() {
-    document.querySelector("#spreadsheet table tbody").innerHTML = "";
+    resetSpreadsheet();
     resetPlots();
     // resetPlots() restores the overlay traces to their hidden default, so
     // re-apply the fade/visibility that matches the current filter setting.
@@ -664,11 +1090,14 @@ function renderActive() {
     const ms = session.measurements;
 
     resetPlots();
-    document.querySelector("#spreadsheet table tbody").innerHTML = "";
+    resetSpreadsheet();
 
     if (ms.length > 0) {
         const times = ms.map(m => m.ts);
-        const vecs = ms.map(rotatedHEZ);
+        let vecs = ms.map(rotatedHEZ);
+        if (usesDeltaB()) {
+            vecs = vecs.map(applyDeltaB);
+        }
         Plotly.update(plotsDiv, {
             x: [times, times, times, times, times],
             y: [
@@ -679,7 +1108,6 @@ function renderActive() {
                 ms.map(m => m.celsius),
             ],
         }, {}, RAW_TRACES);
-        rebuildSpreadsheet();
         updateCurrentTable(ms[ms.length - 1]);
     } else {
         document.getElementById("h").textContent = "-";
@@ -694,11 +1122,12 @@ function renderActive() {
     }
     setHeaderStatus(session.status);
     autofollow = true;
-    updateLock = true;
     updateRange();
-    updateLock = false;
 }
 
+// ----------------------------------------------------------------------------
+// Import: Load JSONL
+// ----------------------------------------------------------------------------
 /**
  * Loads a JSONL .log file into the active session, replacing its buffer.
  * @param {File} file the .log file selected by the user
@@ -731,7 +1160,7 @@ function loadLogFile(file) {
             session.sBucket.length = 0;
 
             resetPlots();
-            document.querySelector("#spreadsheet table tbody").innerHTML = "";
+            resetSpreadsheet();
             const times = logs.map(({ ts }) => ts);
             const vecs = logs.map(rotatedHEZ);
             Plotly.update(plotsDiv, {
@@ -753,18 +1182,63 @@ function loadLogFile(file) {
 }
 
 // ----------------------------------------------------------------------------
+// Spreadsheet: Export JSONL/CSV (Active Source)
+// ----------------------------------------------------------------------------
+function exportFile(filename, text, mime) {
+    const url = URL.createObjectURL(new Blob([text], { type: mime }));
+    const a = Object.assign(document.createElement("a"), {
+        href: url,
+        download: filename
+    });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+document.getElementById("jsonl").addEventListener("click", _ => {
+    const { name } = activeSource();
+    const { measurements } = activeSession();
+    const ts = measurements[measurements.length - 1].ts.toISOString();
+    const jsonls = measurements.map(m => m.toJSONL());
+    const buffer = jsonls.join("\n");
+    exportFile(`${name}_${ts}.log`, buffer, "text/plain");
+});
+document.getElementById("csv").addEventListener("click", _ => {
+    const { name } = activeSource();
+    const { measurements } = activeSession();
+    const ts = measurements[measurements.length - 1].ts.toISOString();
+    const csvs = activeSession().measurements.map(m => m.toCSV());
+    const buffer = `\uFEFFts,rt,x,y,z\n${csvs.join("\n")}`;
+    exportFile(`${name}_${ts}.csv`, buffer, "text/csv");
+});
+
+// ----------------------------------------------------------------------------
 // Sidebar: toggle
 // ----------------------------------------------------------------------------
 const sideToggle = document.getElementById("sideToggle");
+const layoutEl = document.querySelector(".layout");
+
+/** Reflects the config-drawer open state on the layout and the toggle icon. */
+function setSidebarOpen(open) {
+    layoutEl.classList.toggle("config-open", open);
+    sideToggle.classList.toggle("fa-bars", !open);
+    sideToggle.classList.toggle("fa-xmark", open);
+}
+
 sideToggle.addEventListener("click", () => {
-    const sidebar = document.getElementById("config");
-    if (sideToggle.classList.contains("fa-xmark")) {
-        sidebar.style.transform = "translateX(-100%)";
-    } else {
-        sidebar.style.transform = "translateX(0)";
+    setSidebarOpen(!layoutEl.classList.contains("config-open"));
+});
+
+// The drawer reserves a layout column (it constricts the plots instead of
+// covering them), so re-fit Plotly to the new plot width once the width
+// transition settles. Plotly's `responsive` only tracks window resizes, not
+// container-only changes, so this must be explicit.
+layoutEl.addEventListener("transitionend", ev => {
+    if (ev.propertyName === "grid-template-columns") {
+        // On tablets the drawer also narrows the data column, so re-fit both.
+        Plotly.Plots.resize(plotsDiv);
+        Plotly.Plots.resize(sparkDiv);
     }
-    sideToggle.classList.toggle("fa-bars");
-    sideToggle.classList.toggle("fa-xmark");
 });
 
 // ----------------------------------------------------------------------------
@@ -777,7 +1251,10 @@ const xDel = document.getElementById("xDelta");
 const yDel = document.getElementById("yDelta");
 const zDel = document.getElementById("zDelta");
 
-/** Loads a source's transform into the rotation sliders. @param {Source} src */
+/**
+ * Loads a source's transform into the rotation sliders.
+ * @param {Source} src
+ */
 function loadRotation(src) {
     rotX.value = src.transform.x;
     rotY.value = src.transform.y;
@@ -799,31 +1276,108 @@ document.getElementById("saveRot").addEventListener("click", () => {
     saveSettings();
     updateCoordGraphs();
     rebuildSpreadsheet();
+    refreshCurrentReading();
+    refreshSparks();
 });
+
+// ----------------------------------------------------------------------------
+// Processing: variations from delta-B (per source)
+// ----------------------------------------------------------------------------
+const dBType = document.getElementById("dBType");
+const methodBtns = [...dBType.querySelectorAll("button")];
+
+/**
+ * Shows only the fields for the given method type and marks its button active.
+ * @param {string} type "constant" | "moving"
+ */
+function showMethodFields(type) {
+    document.querySelectorAll("#config .method-fields").forEach(el => {
+        el.hidden = el.dataset.type !== type;
+    });
+    methodBtns.forEach(b => { b.disabled = b.name === type; });
+}
+
+// Switch dB calc method (changes visible fields).
+methodBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+        showMethodFields(btn.name);
+    });
+});
+
+const dH = document.getElementById("dH");
+const dE = document.getElementById("dE");
+const dZ = document.getElementById("dZ");
+
+document.getElementById("savedB").addEventListener("click", () => {
+    const src = activeSource();
+    const method = document.querySelector("#dBType button:disabled").name;
+    src.dB.moving = method === "moving";
+    if (method === "moving") {
+        // Snapshot the current trailing moving average as a fixed baseline.
+        const ms = activeSession().measurements;
+        if (ms.length === 0) {
+            return; // nothing to baseline against yet
+        }
+        const base = rotatedHEZ(
+            trailingAverageAt(ms, ms.length - 1, settings.filter.windowSec));
+        src.dB.h = base[0];
+        src.dB.e = base[1];
+        src.dB.z = base[2];
+        dH.value = base[0];
+        dE.value = base[1];
+        dZ.value = base[2];
+    } else {
+        src.dB.h = dH.valueAsNumber || 0;
+        src.dB.e = dE.valueAsNumber || 0;
+        src.dB.z = dZ.valueAsNumber || 0;
+    }
+    saveSettings();
+    updateCoordGraphs();
+    rebuildSpreadsheet();
+    refreshCurrentReading();
+    refreshSparks();
+});
+
+// Reset delta-B back to zero (absolute view).
+document.getElementById("resetdB").addEventListener("click", () => {
+    const src = activeSource();
+    src.dB = { moving: false, h: 0, e: 0, z: 0 };
+    dH.value = "";
+    dE.value = "";
+    dZ.value = "";
+    showMethodFields("constant");
+    saveSettings();
+    updateCoordGraphs();
+    rebuildSpreadsheet();
+    refreshCurrentReading();
+    refreshSparks();
+});
+
+/**
+ * Loads a source's delta-B config into the sidebar.
+ * @param {Source} src
+ */
+function loadDeltaB(src) {
+    dH.value = src.dB.h ?? 0;
+    dE.value = src.dB.e ?? 0;
+    dZ.value = src.dB.z ?? 0;
+    showMethodFields(src.dB.moving ? "moving" : "constant");
+}
 
 // ----------------------------------------------------------------------------
 // Processing: moving-average filter (shared)
 // ----------------------------------------------------------------------------
-const filterGroup = document.getElementById("filterGroup");
+const filter = document.getElementById("filter");
 const filterWindow = document.getElementById("filterWindow");
-const filterOff = filterGroup.querySelector('button[name="off"]');
-const filterOn = filterGroup.querySelector('button[name="on"]');
 
+filter.checked = settings.filter.enabled;
 filterWindow.value = String(settings.filter.windowSec);
-filterOff.disabled = !settings.filter.enabled;
-filterOn.disabled = settings.filter.enabled;
 
-/** @param {boolean} enabled */
-function setFilterEnabled(enabled) {
-    settings.filter.enabled = enabled;
+filter.addEventListener("change", ev => {
+    settings.filter.enabled = ev.target.checked;
     saveSettings();
-    filterOff.disabled = !enabled;
-    filterOn.disabled = enabled;
     refreshFilter();
-}
-
-filterOff.addEventListener("click", () => setFilterEnabled(false));
-filterOn.addEventListener("click", () => setFilterEnabled(true));
+});
 
 filterWindow.addEventListener("change", ev => {
     const windowSec = parseInt(ev.target.value, 10);
@@ -847,6 +1401,75 @@ timeSelect.addEventListener("change", ev => {
     saveSettings();
     autofollow = true;
     updateRange();
+});
+
+// ----------------------------------------------------------------------------
+// Display: dB/dt(shared)
+// ----------------------------------------------------------------------------
+const dBdtToggle = document.getElementById("dBdtToggle");
+dBdtToggle.checked = settings.dBdt;
+function updatedBdt() {
+    const row2 = document.querySelector(".row2");
+    const cell = row2.querySelector(".cell:last-of-type");
+    // TODO: Update the spreadsheet to include/exclude dB/dt column
+    if (settings.dBdt) {
+        row2.classList.add("dB");
+        cell.style.cssText = "";
+    } else {
+        row2.classList.remove("dB");
+        cell.style.display = "none";
+    }
+    // Show/hide the spreadsheet's dB/dt column to match.
+    document.getElementById("spreadsheet")
+        .classList.toggle("show-dbdt", settings.dBdt);
+}
+dBdtToggle.addEventListener("change", ev => {
+    settings.dBdt = ev.target.checked;
+    saveSettings();
+    updatedBdt();
+    // Don't leave the table sorted by a now-hidden column.
+    if (!settings.dBdt && sortState.col === "dbdt") {
+        sortState.col = "time";
+        sortState.dir = "desc";
+        syncSortHeader();
+        resetSpreadsheet();
+    }
+})
+
+// ----------------------------------------------------------------------------
+// Theme (issue #16): light/dark, defaulting to the OS preference until the user
+// flips the toggle, after which their explicit choice is remembered.
+// ----------------------------------------------------------------------------
+const ldMode = document.getElementById("ldMode");
+const darkMq = matchMedia("(prefers-color-scheme: dark)");
+
+/** Resolves the saved preference ("system"|"light"|"dark") to "dark"|"light". */
+function resolveTheme() {
+    if (settings.theme === "dark" || settings.theme === "light") {
+        return settings.theme;
+    }
+    return darkMq.matches ? "dark" : "light";
+}
+
+/** Applies the resolved theme to the document, the toggle, and the charts. */
+function applyTheme() {
+    const theme = resolveTheme();
+    document.documentElement.dataset.theme = theme;
+    ldMode.checked = theme === "dark";
+    retintPlots();
+}
+
+ldMode.addEventListener("change", () => {
+    settings.theme = ldMode.checked ? "dark" : "light";
+    saveSettings();
+    applyTheme();
+});
+
+// While still following the OS (no explicit choice yet), track live OS changes.
+darkMq.addEventListener("change", () => {
+    if (settings.theme === "system") {
+        applyTheme();
+    }
 });
 
 // ----------------------------------------------------------------------------
@@ -885,7 +1508,10 @@ function clearConnErrors() {
     fileErr.textContent = "";
 }
 
-/** Loads a source's connection config into the panel. @param {Source} src */
+/**
+ * Loads a source's connection config into the panel.
+ * @param {Source} src
+ */
 function loadConnForm(src) {
     srcName.value = src.name ?? "";
     wsUrl.value = src.websocket?.url ?? "";
@@ -913,16 +1539,39 @@ mqttTopic.addEventListener("input", () => { mqttTopicErr.textContent = ""; });
 logfile.addEventListener("change", () => { fileErr.textContent = ""; });
 
 /**
+ * Validates `url` against an explicit list of allowed schemes. The allowlist is
+ * essential: a bare `new URL(url)` parses any scheme, so http:/https: (and
+ * anything else) would otherwise pass. Also requires a host, which rejects the
+ * opaque forms (e.g. "mqtt:foo") that still parse with a valid protocol.
+ * @param {string} url
+ * @param {string[]} allowed permitted URL protocols, e.g. ["ws:", "wss:"]
+ * @returns {boolean}
+ */
+function isValidUrl(url, allowed) {
+    try {
+        const u = new URL(url);
+        return allowed.includes(u.protocol) && !!u.hostname;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * @param {string} url
  * @returns {boolean} whether `url` is a valid ws:// or wss:// URL
  */
 function isValidWsUrl(url) {
-    try {
-        const u = new URL(url);
-        return u.protocol === "ws:" || u.protocol === "wss:";
-    } catch {
-        return false;
-    }
+    return isValidUrl(url, ["ws:", "wss:"]);
+}
+
+/**
+ * The MQTT broker accepts WebSocket (ws/wss) and native MQTT (mqtt/mqtts)
+ * schemes — but not http/https or anything else.
+ * @param {string} url
+ * @returns {boolean} whether `url` is a valid ws/wss/mqtt/mqtts broker URL
+ */
+function isValidBrokerUrl(url) {
+    return isValidUrl(url, ["ws:", "wss:", "mqtt:", "mqtts:"]);
 }
 
 connectBtn.addEventListener("click", () => {
@@ -949,8 +1598,8 @@ connectBtn.addEventListener("click", () => {
         connectSession(session);
     } else if (src.type === "mqtt") {
         let ok = true;
-        if (!isValidWsUrl(src.mqtt.broker)) {
-            mqttBrokerErr.textContent = "Enter a ws:// or wss:// broker URL.";
+        if (!isValidBrokerUrl(src.mqtt.broker)) {
+            mqttBrokerErr.textContent = "Enter a ws://, wss://, mqtt:// or mqtts:// broker URL.";
             ok = false;
         }
         if (!src.mqtt.topic) {
@@ -996,17 +1645,29 @@ document.querySelectorAll("#config .panel-header").forEach(header => {
 const tabsEl = document.getElementById("tabs");
 const addTabBtn = document.getElementById("addTab");
 
-/** @param {number} code status code @returns {string} CSS class for the dot */
+/**
+ * @param {number} code status code
+ * @returns {string} CSS class for the dot
+ */
 function statusClass(code) {
     switch (code) {
-        case 0: return "s-connecting";
-        case 1: case 4: return "s-connected";
-        case 3: return "s-failed";
-        default: return "s-disconnected"; // 2 disconnected, 5 auth failed
+        case 0:
+            return "s-connecting"; // blue
+        case 1:
+        case 4:
+            return "s-connected"; // green
+        case 3:
+            return "s-failed"; // yellow
+        default: // 2 disconnected, 5 auth failed
+            return "s-disconnected"; // red
     }
 }
 
-/** Updates just one tab's status dot. @param {string} id @param {number} code */
+/**
+ * Updates just one tab's status dot.
+ * @param {string} id
+ * @param {number} code
+ */
 function updateTabStatus(id, code) {
     const dot = tabsEl.querySelector(`.tab[data-id="${id}"] .tab-status`);
     if (dot) {
@@ -1014,7 +1675,9 @@ function updateTabStatus(id, code) {
     }
 }
 
-/** Rebuilds the tab strip from settings.sources. */
+/**
+ * Rebuilds the tab strip from settings.sources.
+ */
 function renderTabs() {
     tabsEl.innerHTML = "";
     for (const src of settings.sources) {
@@ -1048,14 +1711,17 @@ function renderTabs() {
     addTabBtn.disabled = settings.sources.length >= MAX_SOURCES;
 }
 
-/** Opens the config sidebar (used when adding a source to configure). */
+/**
+ * Opens the config sidebar (used when adding a source to configure).
+ */
 function openSidebar() {
-    document.getElementById("config").style.transform = "translateX(0)";
-    sideToggle.classList.remove("fa-bars");
-    sideToggle.classList.add("fa-xmark");
+    setSidebarOpen(true);
 }
 
-/** Switches the UI to a different source. @param {string} id */
+/**
+ * Switches the UI to a different source.
+ * @param {string} id
+ */
 function switchTab(id) {
     if (id === settings.activeSourceId || !sessions.has(id)) {
         return;
@@ -1065,11 +1731,14 @@ function switchTab(id) {
     const src = activeSource();
     loadConnForm(src);
     loadRotation(src);
+    loadDeltaB(src);
     renderActive();
     renderTabs();
 }
 
-/** Adds a new, unconfigured source and switches to it. */
+/**
+ * Adds a new, unconfigured source and switches to it.
+ */
 function addTab() {
     if (settings.sources.length >= MAX_SOURCES) {
         return;
@@ -1081,13 +1750,17 @@ function addTab() {
     saveSettings();
     loadConnForm(src);
     loadRotation(src);
+    loadDeltaB(src);
     renderActive();
     renderTabs();
     openSidebar();
     srcName.focus();
 }
 
-/** Closes a source, its connection, and its session. @param {string} id */
+/**
+ * Closes a source, its connection, and its session.
+ * @param {string} id
+ */
 function closeTab(id) {
     const session = sessions.get(id);
     if (session && session.connection) {
@@ -1114,6 +1787,7 @@ function closeTab(id) {
     const src = activeSource();
     loadConnForm(src);
     loadRotation(src);
+    loadDeltaB(src);
     renderActive();
     renderTabs();
 }
@@ -1135,8 +1809,11 @@ srcName.addEventListener("input", () => {
 // ----------------------------------------------------------------------------
 loadConnForm(activeSource());
 loadRotation(activeSource());
+loadDeltaB(activeSource());
 refreshFilter();
 renderTabs();
+updatedBdt();
+applyTheme();
 for (const src of settings.sources) {
     connectSession(sessions.get(src.id));
 }
@@ -1158,11 +1835,14 @@ for (const src of settings.sources) {
  * @prop {{url: string}} websocket
  * @prop {{broker: string, topic: string, username: string, password: string}} mqtt
  * @prop {{x: number, y: number, z: number}} transform
+ * @prop {{moving: boolean, h: number, e: number, z: number}} dB
  */
 
 /**
  * @typedef {object} DashSettings
  * @prop {string} displayWindow
+ * @prop {boolean} dBdt
+ * @prop {"system"|"light"|"dark"} theme
  * @prop {{enabled: boolean, windowSec: number}} filter
  * @prop {Source[]} sources
  * @prop {string} activeSourceId
