@@ -191,4 +191,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: deploy/gmag-webui.service.in (ExecStart now uses @DENO@ placeholder), deploy/install.sh (new --deno flag; resolve_deno() resolves via override → service user's login-shell PATH → scan of common install locations; aborts with guidance if deno not found; @DENO@ added to render() substitutions), deploy/README.md (documented @DENO@ placeholder, --deno flag, and Deno resolution order)
 - **Nature of Contribution**: Bug fix / code generation (deployment tooling)
 - **Human Review Status**: Reviewed and verified (install.sh passes bash -n; changes reviewed by user)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: d14125c
