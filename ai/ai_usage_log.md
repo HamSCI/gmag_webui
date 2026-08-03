@@ -184,3 +184,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation (feature)
 - **Human Review Status**: Reviewed and verified (headless WebKit with 6000 rows: default newest-first, ascending/descending per column monotonic and correct, stable ties, caret/aria-sort track the active column, no console errors; `deno lint` clean, 28/28 tests pass)
 - **Git Hash**: c013402
+
+## [2026-08-02 21:48 EDT]
+- **Tool**: Claude (Anthropic), claude-opus-4-8 (1M context)
+- **Session Purpose**: Fix gmag-webui.service failing on remote hosts because the unit hardcoded ExecStart=/usr/local/bin/deno, but Deno's official installer places the binary at ~/.deno/bin/deno. Resolve the deno path per-host at install time instead of assuming one location.
+- **Sections/Files Affected**: deploy/gmag-webui.service.in (ExecStart now uses @DENO@ placeholder), deploy/install.sh (new --deno flag; resolve_deno() resolves via override → service user's login-shell PATH → scan of common install locations; aborts with guidance if deno not found; @DENO@ added to render() substitutions), deploy/README.md (documented @DENO@ placeholder, --deno flag, and Deno resolution order)
+- **Nature of Contribution**: Bug fix / code generation (deployment tooling)
+- **Human Review Status**: Reviewed and verified (install.sh passes bash -n; changes reviewed by user)
+- **Git Hash**: d14125c
