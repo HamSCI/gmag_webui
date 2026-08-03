@@ -10,7 +10,7 @@ User=@USER@
 WorkingDirectory=@REPO@
 EnvironmentFile=@REPO@/.env
 Environment=HOME=@HOME@
-ExecStart=/usr/local/bin/deno run --allow-net --allow-read --allow-env ts/main.ts
+ExecStart=@DENO@ run --allow-net --allow-read --allow-env ts/main.ts
 Restart=always
 RestartSec=3
 NoNewPrivileges=true

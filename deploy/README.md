@@ -28,18 +28,27 @@ nothing here is pinned to a specific username or host.
 | `@USER@` | service user (see resolution order below) |
 | `@HOME@` | that user's home directory |
 | `@REPO@` | this checkout's location |
+| `@DENO@` | the `deno` binary (resolved per-host, see below) |
 
 ## Install
 
 ```bash
 sudo deploy/install.sh                    # auto-resolve the service user
 sudo deploy/install.sh --user wsprdaemon  # or force a specific user
+sudo deploy/install.sh --deno /path/deno  # or force a specific deno binary
 sudo deploy/install.sh --enable           # also enable + start the units
 ```
 
 User resolution order: `--user` → `$SUDO_USER` (the human who ran sudo) → the
 owner of the repo checkout. The installer never starts services unless `--enable`
 is given (so you can create the `.env` file first).
+
+Deno resolution order: `--deno` → the service user's `PATH` (via a login shell)
+→ a scan of the usual install locations (`~/.deno/bin`, `/usr/local/bin`,
+`/usr/bin`, `/root/.deno/bin`, `/opt/deno/bin`, `/snap/bin`). Deno's official
+installer drops the binary in `~/.deno/bin/deno`, **not** `/usr/local/bin/deno`,
+so the path is resolved per-host rather than assumed. If it can't be found the
+installer aborts with instructions instead of writing a broken unit.
 
 ## Auto-update behavior
 

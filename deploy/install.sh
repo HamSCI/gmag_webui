@@ -7,19 +7,26 @@
 # Usage (run with sudo, from anywhere):
 #   sudo deploy/install.sh                     # resolve user automatically
 #   sudo deploy/install.sh --user wsprdaemon   # force a specific service user
+#   sudo deploy/install.sh --deno /path/deno   # force a specific deno binary
 #   sudo deploy/install.sh --enable            # also enable+start the units
 #
 # User resolution order: --user  >  $SUDO_USER (the human who ran sudo)  >
 # the owner of the repo checkout.
+#
+# Deno resolution order: --deno  >  the service user's PATH (login shell)  >
+# a scan of common install locations. Deno's official installer puts the binary
+# in ~/.deno/bin, NOT /usr/local/bin, so the path differs from host to host --
+# this resolves it per-machine instead of assuming one location.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"   # .../deploy
 REPO="$(dirname "$SCRIPT_DIR")"                              # repo root
 
-USER_ARG="" ; DO_ENABLE=0
+USER_ARG="" ; DENO_ARG="" ; DO_ENABLE=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --user)    USER_ARG="${2:?}"; shift 2 ;;
+        --deno)    DENO_ARG="${2:?}"; shift 2 ;;
         --enable)  DO_ENABLE=1; shift ;;
         -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -46,17 +53,54 @@ if ! getent passwd "$SVC_USER" >/dev/null; then
 fi
 SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
 
+# --- resolve the deno binary (absolute path; systemd ExecStart needs it) ---
+resolve_deno() {
+    # 1) explicit override
+    if [ -n "$DENO_ARG" ]; then
+        command -v "$DENO_ARG" 2>/dev/null || realpath "$DENO_ARG" 2>/dev/null
+        return
+    fi
+    # 2) whatever the service user's login shell finds on PATH
+    local found
+    found="$(runuser -u "$SVC_USER" -- bash -lc 'command -v deno' 2>/dev/null || true)"
+    if [ -n "$found" ]; then echo "$found"; return; fi
+    # 3) scan the usual install locations (incl. the official installer's default)
+    local p
+    for p in \
+        "$SVC_HOME/.deno/bin/deno" \
+        /usr/local/bin/deno \
+        /usr/bin/deno \
+        /root/.deno/bin/deno \
+        /opt/deno/bin/deno \
+        /snap/bin/deno ; do
+        [ -x "$p" ] && { echo "$p"; return; }
+    done
+}
+
+DENO_BIN="$(resolve_deno || true)"
+if [ -z "$DENO_BIN" ] || [ ! -x "$DENO_BIN" ]; then
+    cat >&2 <<EOF
+error: could not locate the 'deno' binary for user '$SVC_USER'.
+       Install Deno, or pass its path explicitly:
+         sudo deploy/install.sh --deno /path/to/deno
+       (Deno's official installer puts it at $SVC_HOME/.deno/bin/deno)
+EOF
+    exit 1
+fi
+
 cat <<EOF
 Installing gmag_webui units with:
   service user : $SVC_USER
   home         : $SVC_HOME
   repo         : $REPO
+  deno         : $DENO_BIN
 EOF
 
 render() {   # substitute placeholders in a .in template -> stdout
     sed -e "s|@USER@|$SVC_USER|g" \
         -e "s|@HOME@|$SVC_HOME|g" \
         -e "s|@REPO@|$REPO|g" \
+        -e "s|@DENO@|$DENO_BIN|g" \
         "$1"
 }
 
