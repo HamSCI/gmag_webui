@@ -45,6 +45,18 @@ function uid() {
 }
 
 /**
+ * The feed this page's own server proxies at /ws.  Same origin, so it works
+ * over the LAN, a relay or RAC without the operator knowing which -- and
+ * without typing an IPv6 literal, which the URL field rejects unless it is
+ * bracketed.
+ * @returns {string}
+ */
+function sameOriginFeed() {
+    const scheme = location.protocol === "https:" ? "wss://" : "ws://";
+    return scheme + location.host + "/ws";
+}
+
+/**
  * @param {string} [name]
  * @returns {Source} a blank source with default settings
  */
@@ -53,7 +65,7 @@ function makeSource(name = "Source 1") {
         id: uid(),
         name,
         type: "websocket",
-        websocket: { url: "" },
+        websocket: { url: sameOriginFeed() },
         mqtt: { broker: "", topic: "", username: "", password: "" },
         transform: { x: 0, y: 0, z: 0 },
         dB: { moving: false, h: 0, e: 0, z: 0 },
@@ -81,6 +93,18 @@ function defaultSettings() {
  * @param {any} s
  */
 function migrateSettings(s) {
+    // An operator who has opened this page before already has a saved source
+    // with url:"" in localStorage, and defaulting makeSource() would never
+    // reach them -- they would keep seeing "disconnected" after the fix.
+    // Only ever fills a BLANK url: a URL someone chose is left alone.
+    if (Array.isArray(s.sources)) {
+        for (const src of s.sources) {
+            if (src && src.type === "websocket"
+                && src.websocket && !src.websocket.url) {
+                src.websocket.url = sameOriginFeed();
+            }
+        }
+    }
     if (!s.filter) {
         s.filter = { enabled: false, windowSec: 60 };
     }
