@@ -198,5 +198,5 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Session Purpose**: Address review findings on PR #35 (same-origin /ws relay of the mag-usb feed): close upstream when the browser disconnects, set MAG_WS_URL for Docker Compose, harden the hand-written RFC 6455 client (fragments, size cap, ping/pong, close echo, masked/reserved-bit rejection, Sec-WebSocket-Accept check), fill blank URLs after legacy-settings migration, and add tests.
 - **Sections/Files Affected**: ts/magFeed.ts (new, relay moved from ts/main.ts), ts/main.ts, ts/magFeed_test.ts (new), js/feed.js (new), js/index.js, js/tests.js, deno.json (test task), compose.yaml, README.md, deploy/README.md, .env.example
 - **Nature of Contribution**: Code generation, bug fixes, tests, documentation
-- **Human Review Status**: Pending review
+- **Human Review Status**: Reviewed and verified (reviewed and accepted by maintainer; merged in #35, released as v0.1.2)
 - **Git Hash**: 9201f74
