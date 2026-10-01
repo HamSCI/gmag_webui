@@ -2,6 +2,7 @@
 import Measurement from "./object/Measurement.js";
 import { buildSparklineTraces, minMaxOfBucket, reduceBucket } from "./sparklines.js";
 import { trailingAverageAt, slidingWindowMeans } from "./filter.js";
+import { fillBlankFeedUrls, sameOriginFeed } from "./feed.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
 /** @typedef {import("./object/Vector.js").default} Vector */
@@ -53,7 +54,7 @@ function makeSource(name = "Source 1") {
         id: uid(),
         name,
         type: "websocket",
-        websocket: { url: "" },
+        websocket: { url: sameOriginFeed(location) },
         mqtt: { broker: "", topic: "", username: "", password: "" },
         transform: { x: 0, y: 0, z: 0 },
         dB: { moving: false, h: 0, e: 0, z: 0 },
@@ -120,6 +121,8 @@ function migrateSettings(s) {
     delete s.connection;
     delete s.transform;
     delete s.inHEZ;
+    // Last, so sources converted from the pre-tabs model above are covered.
+    fillBlankFeedUrls(s.sources, sameOriginFeed(location));
 }
 
 /** @type {DashSettings} */

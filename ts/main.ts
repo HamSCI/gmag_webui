@@ -1,4 +1,5 @@
 import "@std/dotenv/load";
+import { DEFAULT_UPSTREAM, relayMagFeed } from "./magFeed.ts";
 
 function createMsgResp(status: number, msg: string): Response {
     return new Response(JSON.stringify({ message: msg, }), {
@@ -34,6 +35,16 @@ if (import.meta.main) {
     Deno.serve({ port, hostname }, (req: Request) => {
         const url = new URL(req.url);
         const { pathname } = url;
+
+        // Same-origin live feed; see ts/magFeed.ts for why and how.
+        if (pathname === "/ws") {
+            if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+                return createMsgResp(426, "Upgrade Required.");
+            }
+            const { socket, response } = Deno.upgradeWebSocket(req);
+            relayMagFeed(socket, Deno.env.get("MAG_WS_URL") ?? DEFAULT_UPSTREAM);
+            return response;
+        }
 
         if (pathname === "/") {
             return new Response(Deno.readTextFileSync("./index.html"), {

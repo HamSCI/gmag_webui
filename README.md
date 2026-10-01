@@ -66,14 +66,20 @@ By default, the dashboard will be available at `localhost:8000`. However, the
 hostname and port can be changed as needed through a .env file. A .env.example
 file is included to demonstrate how to configure the environment.
 
-The dashboard must be given a host to connect to before any data is displayed.
-The host is the IP address of the computer running mag-usb. A simple `ifconfig`
-should help you find the local IP if you are unsure. Click the save button next
-to the host field and the dashboard should display a "Connecting" status.
+The dashboard's server relays mag-usb's live feed at `/ws`, and new sources
+connect there by default, so no host needs to be entered. The server reaches
+mag-usb at `ws://127.0.0.1:8765/` unless `MAG_WS_URL` is set in the .env file;
+set it if mag-usb runs on a different computer or port (for example,
+`MAG_WS_URL="ws://192.168.1.20:8765/"`). Under Docker Compose this is preset to
+the `backend` container.
+
+You can still point a source at any other WebSocket host by entering its URL in
+the host field and clicking save.
 
 If your dashboard does not show a "Connected" status within a few seconds or
-switches to a "Failed" status, check that you entered the host correctly, then
-check mag-usb to make sure it is configured correctly.
+switches to a "Failed" status, check the dashboard server's log for a
+`mag ws upstream:` error, then check mag-usb to make sure it is configured
+correctly.
 
 The dashboard will autoscroll with the most recently collected data. You can
 zoom in/pan on specific regions of the plots to disable the autoscroll behavior.

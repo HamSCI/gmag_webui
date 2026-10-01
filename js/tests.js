@@ -3,6 +3,7 @@ import Measurement from "./object/Measurement.js";
 import Vector from "./object/Vector.js";
 import { movingAverage, slidingWindowMeans, trailingAverageAt } from "./filter.js";
 import { minMaxOfBucket, reduceBucket } from "./sparklines.js";
+import { fillBlankFeedUrls, sameOriginFeed } from "./feed.js";
 
 /**
  * Builds a Measurement at `sec` seconds past 00:00:00 on 01 Jan 2025.
@@ -283,4 +284,26 @@ Deno.test("slidingWindowMeans matches trailingAverageAt on the same data", () =>
     for (let i = 0; i < data.length; i++) {
         assertAlmostEquals(fast[i], trailingAverageAt(data, i, 60).XYZ[0]);
     }
+});
+
+Deno.test("same-origin feed follows the page's scheme and host", () => {
+    assertEquals(sameOriginFeed({ protocol: "http:", host: "station.local:8000" }),
+        "ws://station.local:8000/ws");
+    assertEquals(sameOriginFeed({ protocol: "https:", host: "relay.example.org" }),
+        "wss://relay.example.org/ws");
+    assertEquals(sameOriginFeed({ protocol: "http:", host: "[2001:db8::7]:8000" }),
+        "ws://[2001:db8::7]:8000/ws");
+});
+
+Deno.test("only blank websocket URLs are filled with the same-origin feed", () => {
+    const sources = [
+        { type: "websocket", websocket: { url: "" } },
+        { type: "websocket", websocket: { url: "ws://10.0.0.5:8765" } },
+        { type: "mqtt", websocket: { url: "" } },
+        null,
+    ];
+    fillBlankFeedUrls(sources, "ws://h/ws");
+    assertEquals(sources[0].websocket.url, "ws://h/ws");
+    assertEquals(sources[1].websocket.url, "ws://10.0.0.5:8765"); // chosen: kept
+    assertEquals(sources[2].websocket.url, "");                   // not websocket
 });
