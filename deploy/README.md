@@ -8,6 +8,9 @@ nothing here is pinned to a specific username or host.
 > Credentials are **not** in this repo. The dashboard reads its config from an
 > `EnvironmentFile` created on the host (`<repo>/.env`, `chmod 600`). Create it
 > by hand; never commit it.
+>
+> Set `MAG_WS_URL` there if mag-usb is not at `ws://127.0.0.1:8765/` on this
+> host; the dashboard relays that feed to browsers at `/ws`.
 
 ## Files
 

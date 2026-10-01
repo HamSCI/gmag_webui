@@ -5,6 +5,8 @@ services:
     working_dir: /app
     environment:
       - WS_PORT=8000
+      # The relay at /ws must reach mag-usb in its own container, not loopback.
+      - MAG_WS_URL=ws://backend:8765/
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

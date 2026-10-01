@@ -192,3 +192,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Bug fix / code generation (deployment tooling)
 - **Human Review Status**: Reviewed and verified (install.sh passes bash -n; changes reviewed by user)
 - **Git Hash**: d14125c
+
+## [2026-09-30 19:58 CDT]
+- **Tool**: Claude (Anthropic), claude-opus-5-5
+- **Session Purpose**: Address review findings on PR #35 (same-origin /ws relay of the mag-usb feed): close upstream when the browser disconnects, set MAG_WS_URL for Docker Compose, harden the hand-written RFC 6455 client (fragments, size cap, ping/pong, close echo, masked/reserved-bit rejection, Sec-WebSocket-Accept check), fill blank URLs after legacy-settings migration, and add tests.
+- **Sections/Files Affected**: ts/magFeed.ts (new, relay moved from ts/main.ts), ts/main.ts, ts/magFeed_test.ts (new), js/feed.js (new), js/index.js, js/tests.js, deno.json (test task), compose.yaml, README.md, deploy/README.md, .env.example
+- **Nature of Contribution**: Code generation, bug fixes, tests, documentation
+- **Human Review Status**: Pending review
+- **Git Hash**: [fill in after committing]
