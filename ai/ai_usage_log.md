@@ -216,3 +216,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Bug fix (Plotly layout config)
 - **Human Review Status**: Reviewed and verified (headless Chromium with SwiftShader WebGL against the live feed at 1920/1024/820 widths: no clipped y-tick labels across all five axes, left margin stable at 60px over 10s of live updates, range slider aligned; 37/37 tests pass)
 - **Git Hash**: 78bdfc2
+
+## [2026-11-25 21:46 EST]
+- **Tool**: Claude (Anthropic), claude-opus-5-5
+- **Session Purpose**: Make the right sidebar (Current Reading / Trends / Spreadsheet) resizable instead of a fixed 500px, so users can give the plots more room; make the divider clearly visible, including on tablets.
+- **Sections/Files Affected**: index.html (#rightResizer separator element); css/index.css (.layout grid track from clamped --right-w, .resizing state, #rightResizer always-visible line + grip with larger touch target under pointer: coarse, Current Reading .cell-value container-query font scaling via --cur-cols/--cur-max, tablet config-open track uses min(350px, --right-col), removed fixed 12pt/15pt cell-value overrides, portrait hides the handle); js/index.js (pointer/keyboard/double-click resize handlers persisted to settings.rightWidth, ResizeObserver plot refit replacing the transitionend handler, spreadsheet row-height re-measure on font-size change, DashSettings typedef); js/index.d.ts (rightWidth)
+- **Nature of Contribution**: Code generation (feature)
+- **Human Review Status**: Reviewed and verified (headless Chromium against the live feed: mouse drag, min/max clamping, keyboard steps, double-click reset, persistence across reload, drawer open at 1920/1024, portrait 820, emulated touch-tablet drag; no cell overflow, plots refit to container, no console errors; divider checked in dark/light/hover/tablet screenshots; deno lint clean; 37/37 tests pass)
+- **Git Hash**: [fill in after committing]

@@ -223,16 +223,29 @@ footer {
        is 0 until the drawer opens, at which point it grows and pushes the plots
        right — constricting them rather than covering them, so the y-axis stays
        visible. Animate the track so the plots slide in step with the drawer. */
-    grid-template-columns: 0 1fr 500px;
+    /* The right column's width is user-resizable via the #rightResizer handle,
+       which sets --right-w (px) on .layout; unset means the 500px default. The
+       clamp keeps the column wide enough for the spreadsheet's smallest legible
+       text (see #spreadsheet --row-em) and leaves the plots at least 40% of the
+       layout, so a saved width can't crush either side on a smaller window. */
+    --right-col: clamp(340px, var(--right-w, 500px), 60%);
+    grid-template-columns: 0 1fr var(--right-col);
     grid-template-rows: minmax(0, 1fr);
     transition: grid-template-columns 0.3s ease;
 }
 .layout.config-open {
-    grid-template-columns: 320px 1fr 500px;
+    grid-template-columns: 320px 1fr var(--right-col);
+}
+/* While dragging, follow the pointer directly instead of easing toward it. */
+.layout.resizing {
+    transition: none;
+    cursor: col-resize;
+    user-select: none;
 }
 
-/*TODO: At some point we want to make this resizable.*/
 .right-column {
+    /* Positioning context for the resize handle on its left edge. */
+    position: relative;
     display: grid;
     /* Current Reading sizes to its content, Trends keeps a proportional slice
        below it, and the spreadsheet takes the remaining space and scrolls.
@@ -241,6 +254,70 @@ footer {
     grid-template-rows: auto 19% minmax(0, 1fr);
     min-height: 0;
     grid-column: 3; /* third layout column (after the drawer + plots) */
+}
+
+/* Drag handle between the plots and the right column: a hit area that
+   straddles the column edge, drawn as an always-visible faint line (::before)
+   with a grip pill at its middle (::after), so it's discoverable without
+   hovering (tablets have no hover). Both turn the accent color on
+   hover/focus/drag. Sizes come from the custom properties so the touch
+   variant below only has to change them. */
+#rightResizer {
+    --hit: 10px;          /* hit-area width */
+    --grip-w: 6px;
+    --grip-h: 44px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--hit) / -2);
+    width: var(--hit);
+    z-index: 1;
+    cursor: col-resize;
+    /* Pointer events drive the drag; stop touch from panning the page. */
+    touch-action: none;
+}
+#rightResizer::before,
+#rightResizer::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+#rightResizer::before {
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: var(--muted);
+    opacity: 0.25;
+}
+#rightResizer::after {
+    top: calc(50% - var(--grip-h) / 2);
+    width: var(--grip-w);
+    height: var(--grip-h);
+    border-radius: calc(var(--grip-w) / 2);
+    background-color: var(--muted);
+    opacity: 0.6;
+}
+#rightResizer:hover::before,
+#rightResizer:hover::after,
+#rightResizer:focus-visible::before,
+#rightResizer:focus-visible::after,
+.layout.resizing #rightResizer::before,
+.layout.resizing #rightResizer::after {
+    background-color: var(--btn-primary-bg);
+    opacity: 1;
+}
+#rightResizer:focus-visible {
+    outline: none;
+}
+/* Touch screens (tablets): a wider hit area for fingers and a bigger grip. */
+@media (pointer: coarse) {
+    #rightResizer {
+        --hit: 24px;
+        --grip-w: 8px;
+        --grip-h: 64px;
+    }
 }
 
 .content-box {
@@ -863,6 +940,11 @@ td {
     grid-template-rows: auto auto;
     gap: 5px;
     padding: 5px 0;
+    /* Reading values scale to this element's width (cqi, see .cell-value) so
+       they fit however wide the user drags the right column. --cur-cols is the
+       most cells sharing one row (3 on desktop; 2 in the portrait layout). */
+    container-type: inline-size;
+    --cur-cols: 3;
 }
 .row1, .row2 {
     display: grid;
@@ -897,10 +979,14 @@ td {
     font-weight: lighter;
 }
 .cell-value {
-    font-size: 18pt;
-    /* Scale smoothly in step with the drawer's grid-template-columns transition
-       when the data column narrows/widens (see the max-width: 1300px block). */
-    transition: font-size 0.3s ease;
+    /* Largest size at which the widest reading fits its cell: the cell's text
+       width (row width less the 5px gaps, split across --cur-cols, less the
+       cell's 2 × 5px padding) over a 5.8em budget for a value like
+       "-131351.818" (≈5.6em in Arial), capped at the original 18pt. */
+    font-size: clamp(8pt,
+        ((100cqi - (var(--cur-cols) - 1) * 5px) / var(--cur-cols) - 10px) / 5.8,
+        var(--cur-max, 18pt));
+    white-space: nowrap;
 }
 
 /* Src: https://www.geeksforgeeks.org/css/how-to-create-toggle-switch-by-using-html-and-css/ */
@@ -986,22 +1072,17 @@ td {
    opening the drawer here would crush the plots, since the base constrict keeps
    the 500px data column (plot = width − 320 − 500). Borrow the space from the
    data column instead so the plots stay usable with the y-axis visible; the
-   column restores to 500px when the drawer closes. Kept in px (not fr) so it
-   interpolates smoothly with the closed state during the transition. The
-   now-narrow column also needs the smaller spreadsheet text.
+   column restores to its (default or user-dragged) width when the drawer
+   closes. Kept in px (not fr) so it interpolates smoothly with the closed state
+   during the transition. Its text scales down with it (container units).
    Floored at min-width: 901px so these config-open overrides don't leak into
    the portrait layout (≤ 900px), which stacks the panels and has its own
    sizing — otherwise the higher-specificity .config-open rules would shrink the
    portrait cells/table when the (overlay) drawer opens. */
 @media (min-width: 901px) and (max-width: 1300px) {
     .layout.config-open {
-        grid-template-columns: 320px 1fr 350px;
-    }
-    /* With the data column narrowed to 350px, scale its text down so the
-       Current Reading values and the spreadsheet columns still fit; restored to
-       full size when the drawer closes. */
-    .layout.config-open .cell-value {
-        font-size: 12pt;
+        /* At most 350px, but no wider than a user-dragged narrower width. */
+        grid-template-columns: 320px 1fr min(350px, var(--right-col));
     }
     /* Collapse the export buttons to icons only (labels kept as title tooltips)
        so they stop crowding the "Spreadsheet" header. */
@@ -1061,15 +1142,18 @@ td {
     #current {
         grid-template-columns: repeat(2, 1fr);
         grid-template-rows: none;
+        /* Two cells per row; cap the values at 15pt so the left column stays
+           narrow, freeing width for the spreadsheet. */
+        --cur-cols: 2;
+        --cur-max: 15pt;
     }
     .row1,
     .row2 {
         display: contents;
     }
-    /* Smaller reading values let the left column stay narrow, freeing width for
-       the spreadsheet. */
-    .cell-value {
-        font-size: 15pt;
+    /* Panels are stacked full-width here, so there's nothing to drag. */
+    #rightResizer {
+        display: none;
     }
     #trends {
         grid-column: 1;

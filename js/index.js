@@ -797,6 +797,19 @@ function addSpreadsheetRow() {
     renderSpreadsheet();
 }
 
+// The table text scales with the column width (container units), which changes
+// the row height the virtual scroll was sized with. Re-measure whenever the
+// font size changes (drag-resize, drawer, window resize).
+let sheetFontSize = "";
+new ResizeObserver(() => {
+    const fs = getComputedStyle(spreadsheetBody).fontSize;
+    if (fs !== sheetFontSize) {
+        sheetFontSize = fs;
+        rowHeight = 0;
+        renderSpreadsheet();
+    }
+}).observe(spreadsheetBody);
+
 // Re-render the window as the user scrolls (throttled to one per frame).
 let scrollRaf = 0;
 spreadsheetBody.addEventListener("scroll", () => {
@@ -1232,15 +1245,140 @@ sideToggle.addEventListener("click", () => {
     setSidebarOpen(!layoutEl.classList.contains("config-open"));
 });
 
-// The drawer reserves a layout column (it constricts the plots instead of
-// covering them), so re-fit Plotly to the new plot width once the width
-// transition settles. Plotly's `responsive` only tracks window resizes, not
-// container-only changes, so this must be explicit.
-layoutEl.addEventListener("transitionend", ev => {
-    if (ev.propertyName === "grid-template-columns") {
-        // On tablets the drawer also narrows the data column, so re-fit both.
-        Plotly.Plots.resize(plotsDiv);
-        Plotly.Plots.resize(sparkDiv);
+// Re-fit Plotly whenever the plot area or the right column changes size: the
+// drawer opening/closing (it constricts the plots instead of covering them),
+// dragging or resetting the right column, and window resizes. Plotly's
+// `responsive` only tracks window resizes, not container-only changes, so this
+// must be explicit. While dragging, re-fit every frame so the plots follow the
+// pointer; otherwise (e.g. during the 0.3s grid transition) wait until the size
+// settles, so the WebGL plots aren't redrawn on every animation frame.
+const rightColumn = document.querySelector(".right-column");
+let refitRaf = 0;
+let refitTimer = 0;
+function refitPlots() {
+    Plotly.Plots.resize(plotsDiv);
+    Plotly.Plots.resize(sparkDiv);
+}
+new ResizeObserver(() => {
+    if (layoutEl.classList.contains("resizing")) {
+        if (!refitRaf) {
+            refitRaf = requestAnimationFrame(() => {
+                refitRaf = 0;
+                refitPlots();
+            });
+        }
+    } else {
+        clearTimeout(refitTimer);
+        refitTimer = setTimeout(refitPlots, 60);
+    }
+}).observe(plotsDiv.parentElement);
+// (The right column changes width in step with main, so observing main alone
+// covers the sparklines too, except in the portrait stack, where only window
+// resizes change it and Plotly's `responsive` handles that.)
+
+// ----------------------------------------------------------------------------
+// Right column: drag-to-resize
+// ----------------------------------------------------------------------------
+// The handle sets --right-w on .layout, which feeds the right grid track (see
+// .layout in css/index.css). The width is saved in settings.rightWidth; unset
+// means the CSS default (500px).
+const rightResizer = document.getElementById("rightResizer");
+// Mirror the CSS clamp on --right-col: at least 340px (the spreadsheet's
+// smallest legible size) and at most 60% of the layout (plots keep ≥ 40%).
+const RIGHT_MIN_PX = 340;
+const RIGHT_MAX_FRAC = 0.6;
+const RIGHT_KEY_STEP = 20;  // px per arrow-key press
+
+/** @param {number} px @returns {number} px clamped to the allowed range */
+function clampRightWidth(px) {
+    const max = Math.max(RIGHT_MIN_PX, layoutEl.clientWidth * RIGHT_MAX_FRAC);
+    return Math.round(Math.min(Math.max(px, RIGHT_MIN_PX), max));
+}
+
+/** @returns {number} the column's rendered width in px */
+function rightWidthNow() {
+    return Math.round(rightColumn.getBoundingClientRect().width);
+}
+
+/**
+ * Sets the right column's width (clamped) and optionally saves it. During a
+ * drag we only persist on release. The plots re-fit via the ResizeObserver.
+ * @param {number} px requested width
+ * @param {boolean} persist whether to save to settings
+ */
+function setRightWidth(px, persist) {
+    const w = clampRightWidth(px);
+    layoutEl.style.setProperty("--right-w", `${w}px`);
+    rightResizer.setAttribute("aria-valuenow", String(w));
+    if (persist) {
+        settings.rightWidth = w;
+        saveSettings();
+    }
+}
+
+/** Restores the default width (double-click). */
+function resetRightWidth() {
+    delete settings.rightWidth;
+    saveSettings();
+    layoutEl.style.removeProperty("--right-w");
+    rightResizer.removeAttribute("aria-valuenow");
+}
+
+if (settings.rightWidth) {
+    layoutEl.style.setProperty("--right-w", `${settings.rightWidth}px`);
+    rightResizer.setAttribute("aria-valuenow", String(settings.rightWidth));
+}
+
+/** @type {{x: number, w: number, moved: boolean} | null} pointer x and column width at drag start */
+let rightDrag = null;
+
+rightResizer.addEventListener("pointerdown", ev => {
+    if (ev.button !== 0) {
+        return;
+    }
+    ev.preventDefault();  // no text selection / focus-scroll while dragging
+    rightResizer.setPointerCapture(ev.pointerId);
+    rightDrag = { x: ev.clientX, w: rightWidthNow(), moved: false };
+    layoutEl.classList.add("resizing");  // disables the track transition
+});
+
+rightResizer.addEventListener("pointermove", ev => {
+    if (rightDrag && ev.clientX !== rightDrag.x) {
+        rightDrag.moved = true;
+        // The handle is on the column's left edge, so dragging left widens it.
+        setRightWidth(rightDrag.w + rightDrag.x - ev.clientX, false);
+    }
+});
+
+/** Ends a drag (release, cancel, or lost capture) and saves the width. A plain
+ *  click (no movement) saves nothing, so it doesn't pin the default width. */
+function endRightDrag() {
+    if (!rightDrag) {
+        return;
+    }
+    const moved = rightDrag.moved;
+    rightDrag = null;
+    layoutEl.classList.remove("resizing");
+    if (moved) {
+        setRightWidth(rightWidthNow(), true);
+    }
+}
+rightResizer.addEventListener("pointerup", endRightDrag);
+rightResizer.addEventListener("pointercancel", endRightDrag);
+rightResizer.addEventListener("lostpointercapture", endRightDrag);
+
+rightResizer.addEventListener("dblclick", resetRightWidth);
+
+// Keyboard: with the handle focused, ← widens and → narrows the column.
+rightResizer.addEventListener("keydown", ev => {
+    const dir = ev.key === "ArrowLeft" ? 1 : ev.key === "ArrowRight" ? -1 : 0;
+    if (dir) {
+        ev.preventDefault();
+        // Step from the requested width, not the rendered one: mid-transition
+        // the rendered width lags, so rapid presses wouldn't accumulate.
+        const cur = parseFloat(layoutEl.style.getPropertyValue("--right-w")) ||
+            rightWidthNow();
+        setRightWidth(cur + dir * RIGHT_KEY_STEP, true);
     }
 });
 
@@ -1849,4 +1987,5 @@ for (const src of settings.sources) {
  * @prop {{enabled: boolean, windowSec: number}} filter
  * @prop {Source[]} sources
  * @prop {string} activeSourceId
+ * @prop {number} [rightWidth] user-dragged right-column width in px (unset = default)
  */

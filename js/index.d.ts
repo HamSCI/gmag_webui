@@ -71,6 +71,8 @@ declare interface DashSettings {
     };
     sources: Source[];
     activeSourceId: string;
+    /** User-dragged right-column width in px; unset = CSS default. */
+    rightWidth?: number;
 }
 
 declare interface SparkAgg {
