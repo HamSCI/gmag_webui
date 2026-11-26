@@ -206,23 +206,28 @@
         },
         "yaxis": {
             "domain": [0.81, 1.0],
-            "anchor": "x"
+            "anchor": "x",
+            "automargin": true
         },
         "yaxis2": {
             "domain": [0.61, 0.8],
-            "anchor": "x"
+            "anchor": "x",
+            "automargin": true
         },
         "yaxis3": {
             "domain": [0.41, 0.6],
-            "anchor": "x"
+            "anchor": "x",
+            "automargin": true
         },
         "yaxis4": {
             "domain": [0.21, 0.40],
-            "anchor": "x"
+            "anchor": "x",
+            "automargin": true
         },
         "yaxis5": {
             "domain": [0.1, 0.2],
-            "anchor": "x"
+            "anchor": "x",
+            "automargin": true
         },
         "legend": {
             "orientation": "h",

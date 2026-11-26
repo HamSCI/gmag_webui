@@ -208,3 +208,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Bug fix (CSS)
 - **Human Review Status**: Reviewed and verified (headless Chromium against the live feed at 1920/1280/1024/820/768 widths, dB/dt on/off, config drawer open: no cell overflow, header/body columns aligned; 37/37 tests pass)
 - **Git Hash**: b8bc0fc
+
+## [2026-11-25 21:14 EST]
+- **Tool**: Claude (Anthropic), claude-opus-5-5
+- **Session Purpose**: Fix main-plot y-axis tick labels being clipped at the left edge when values are large (e.g. −15.248k, 131.356k nT from the live test source).
+- **Sections/Files Affected**: js/data/plots.json (layout.yaxis–yaxis5: added "automargin": true so the left margin grows past the 50px minimum to fit tick labels)
+- **Nature of Contribution**: Bug fix (Plotly layout config)
+- **Human Review Status**: Reviewed and verified (headless Chromium with SwiftShader WebGL against the live feed at 1920/1024/820 widths: no clipped y-tick labels across all five axes, left margin stable at 60px over 10s of live updates, range slider aligned; 37/37 tests pass)
+- **Git Hash**: [fill in after committing]
