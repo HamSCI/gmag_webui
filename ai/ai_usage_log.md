@@ -215,4 +215,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: js/data/plots.json (layout.yaxis–yaxis5: added "automargin": true so the left margin grows past the 50px minimum to fit tick labels)
 - **Nature of Contribution**: Bug fix (Plotly layout config)
 - **Human Review Status**: Reviewed and verified (headless Chromium with SwiftShader WebGL against the live feed at 1920/1024/820 widths: no clipped y-tick labels across all five axes, left margin stable at 60px over 10s of live updates, range slider aligned; 37/37 tests pass)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 78bdfc2
