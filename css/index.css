@@ -16,6 +16,14 @@
     --btn-primary-disabled: #007da6e6;
     --col-tab-active: #424242;
     --right-side-radius: 8px;
+    /* Spreadsheet column header: the same dark fill and hover in both themes
+       (the dark palette's --surface-header-bg / --surface-hover values), so the
+       bright series-colored labels (Temp #ff0, dB/dt #9af8ff, ...) stay
+       readable on hover. Separate from the --surface-* tokens, which the panel
+       headers and config drawer still theme. */
+    --sheet-head-bg: #333333;
+    --sheet-head-fg: #ffffff;
+    --sheet-head-hover: #444444;
 
     /* Themeable — DARK palette (default / fallback) */
     --bg: #1e1e1e;
@@ -74,10 +82,9 @@
     --chrome-fg-dim: #c3c9d0;
     --chrome-soft: rgba(255, 255, 255, 0.08);
     --chrome-hover: rgba(255, 255, 255, 0.16);
-    /* Table/column headers use a solid gunmetal that echoes the chrome
-       gradient's tone (a light-theme gradient can't be used behind them, and a
-       light fill would wash out the bright inline series-color labels — Temp
-       #ff0, dB/dt #9af8ff, E green). --surface-header-fg stays white. */
+    /* Header surfaces use a solid gunmetal that echoes the chrome gradient's
+       tone. (The spreadsheet's column header doesn't theme at all; see
+       --sheet-head-* above.) --surface-header-fg stays white. */
     --surface-header-bg: #474e56;
     --surface-hover: #d5dbe2;
     --border: rgba(0, 0, 0, 0.12);
@@ -435,7 +442,7 @@ table {
        overflow-y: hidden keeps the header itself unscrollable / gutter-only. */
     overflow-y: hidden;
     scrollbar-gutter: stable;
-    background-color: var(--surface-header-bg);
+    background-color: var(--sheet-head-bg);
 }
 
 .scrolling {
@@ -487,8 +494,8 @@ table {
 }
 
 thead th {
-    background-color: var(--surface-header-bg);
-    color: var(--surface-header-fg);
+    background-color: var(--sheet-head-bg);
+    color: var(--sheet-head-fg);
     /* No horizontal padding: the column em budgets already include spacing. */
     padding: 6px 0;
 }
@@ -501,7 +508,15 @@ thead th[data-sort] {
     white-space: nowrap;
 }
 thead th[data-sort]:hover {
-    background-color: var(--surface-hover);
+    background-color: var(--sheet-head-hover);
+}
+/* The header reserves a scrollbar gutter on its right (see .fixed-head) that
+   shows the thead's own background, so hovering the last visible column left
+   that corner un-highlighted. Extend the hover color into it. The last visible
+   column is dB/dt when shown, otherwise Temp. */
+#spreadsheet.show-dbdt .fixed-head:has(th.col-dbdt:hover),
+#spreadsheet:not(.show-dbdt) .fixed-head:has(th[data-sort="temp"]:hover) {
+    background-color: var(--sheet-head-hover);
 }
 thead th[aria-sort="ascending"]::after {
     content: " \25B2";   /* ▲ */
