@@ -4,6 +4,7 @@ import Vector from "./object/Vector.js";
 import { movingAverage, slidingWindowMeans, trailingAverageAt } from "./filter.js";
 import { minMaxOfBucket, reduceBucket } from "./sparklines.js";
 import { fillBlankFeedUrls, sameOriginFeed } from "./feed.js";
+import { dataExtent, easeInOutCubic, lerpRange, plotlyAutoRange } from "./animate.js";
 
 /**
  * Builds a Measurement at `sec` seconds past 00:00:00 on 01 Jan 2025.
@@ -306,4 +307,34 @@ Deno.test("only blank websocket URLs are filled with the same-origin feed", () =
     assertEquals(sources[0].websocket.url, "ws://h/ws");
     assertEquals(sources[1].websocket.url, "ws://10.0.0.5:8765"); // chosen: kept
     assertEquals(sources[2].websocket.url, "");                   // not websocket
+});
+
+// ---- Animated range changes (js/animate.js) ---------------------------------
+
+Deno.test("easing starts at 0, ends at 1, is symmetric about the midpoint", () => {
+    assertEquals(easeInOutCubic(0), 0);
+    assertEquals(easeInOutCubic(1), 1);
+    assertEquals(easeInOutCubic(0.5), 0.5);
+    assertAlmostEquals(easeInOutCubic(0.25) + easeInOutCubic(0.75), 1, 1e-12);
+    // Gentle start: slower than linear early on.
+    assert(easeInOutCubic(0.1) < 0.1);
+});
+
+Deno.test("lerpRange interpolates both ends", () => {
+    assertEquals(lerpRange([0, 10], [100, 200], 0), [0, 10]);
+    assertEquals(lerpRange([0, 10], [100, 200], 1), [100, 200]);
+    assertEquals(lerpRange([0, 10], [100, 200], 0.5), [50, 105]);
+});
+
+Deno.test("dataExtent spans all arrays and skips non-finite values", () => {
+    assertEquals(dataExtent([[3, 1, NaN], [null, 7, undefined, Infinity]]), [1, 7]);
+    assertEquals(dataExtent([[], [NaN, null]]), null);
+});
+
+Deno.test("plotlyAutoRange matches Plotly's 5% padding and constant-data ±1", () => {
+    // Observed from Plotly 3.3: data 980..1020 autoranges to 977.78..1022.22.
+    const [lo, hi] = plotlyAutoRange([980, 1020]);
+    assertAlmostEquals(lo, 977.7778, 1e-3);
+    assertAlmostEquals(hi, 1022.2222, 1e-3);
+    assertEquals(plotlyAutoRange([5, 5]), [4, 6]);
 });

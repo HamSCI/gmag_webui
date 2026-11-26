@@ -232,3 +232,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Bug fix / style (CSS)
 - **Human Review Status**: Reviewed and verified (headless Chromium screenshots in dark and light themes with dB/dt on and off: gutter matches the hovered label, non-last hovers leave it unchanged, header identical across themes; 37/37 tests pass)
 - **Git Hash**: 1c21bfa
+
+## [2026-11-25 22:42 EST]
+- **Tool**: Claude (Anthropic), claude-opus-5-5
+- **Session Purpose**: Animate main-plot range changes when switching the time window and when resetting the view (double-click / "Reset axes"), including the y-axes on reset.
+- **Sections/Files Affected**: js/animate.js (new: easeInOutCubic, lerpRange, dataExtent, plotlyAutoRange, prefersReducedMotion, rAF-driven animate loop); js/index.js (rangeAnim state; trailingWindowL using the axis d2l; yAutoRangeTargets; animateRanges holding updateLock for the whole animation; resetView; custom animated "Reset axes" modebar button replacing resetScale2d; time-window handler animates; live updates skip snapping while animating; cancel on pointerdown/wheel, source switch, and updateRange); js/data/plots.json (config.doubleClick: false); js/tests.js (4 tests for the animate.js helpers)
+- **Nature of Contribution**: Code generation (feature), feasibility analysis
+- **Human Review Status**: Reviewed and verified (headless Chromium against the live feed: window-change and reset animations land on exact targets with no snap, autofollow resumes after reset and stays off after a pan, wheel interrupt hands control to the user, no console errors; frame rate measured on Intel UHD 630 via Metal: ~40 fps window change, ~23 fps reset; deno lint clean; 41/41 tests pass)
+- **Git Hash**: [fill in after committing]

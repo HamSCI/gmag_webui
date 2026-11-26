@@ -3,6 +3,8 @@ import Measurement from "./object/Measurement.js";
 import { buildSparklineTraces, minMaxOfBucket, reduceBucket } from "./sparklines.js";
 import { trailingAverageAt, slidingWindowMeans } from "./filter.js";
 import { fillBlankFeedUrls, sameOriginFeed } from "./feed.js";
+import { animate, dataExtent, lerpRange, plotlyAutoRange, prefersReducedMotion }
+    from "./animate.js";
 import plotsInit from "./data/plots.json" with { type: "json" };
 import slInit from "./data/sparklines.json" with { type: "json" };
 /** @typedef {import("./object/Vector.js").default} Vector */
@@ -204,6 +206,9 @@ const sparkDiv = document.getElementById("sparklines");
 
 let autofollow = true;
 let updateLock = false;
+/** The running animated range change, if any (see animateRanges).
+ *  @type {{cancel: () => void, done: Promise<boolean>} | null} */
+let rangeAnim = null;
 
 // Per-source uirevision. Plotly preserves axis ranges, zoom, and the range
 // slider whenever uirevision is unchanged (even across newPlot), which left a
@@ -310,11 +315,24 @@ function attachPlotHandlers() {
             autofollow = false;
         }
     });
-    plotsDiv.on("plotly_doubleclick", () => {
-        autofollow = true;
-        updateRange(); // self-locks against the autofollow handler
-    });
+    // Plotly's own double-click reset is disabled (doubleClick: false in
+    // plots.json) because it snaps instantly; the event still fires, and we
+    // animate the reset instead.
+    plotsDiv.on("plotly_doubleclick", resetView);
 }
+
+// Replaces the modebar's built-in "Reset axes" (resetScale2d, removed below),
+// which would also snap instantly, with one that animates like double-click.
+const mainPlotConfig = {
+    ...plotsInit.config,
+    modeBarButtonsToRemove: [...plotsInit.config.modeBarButtonsToRemove, "resetScale2d"],
+    modeBarButtonsToAdd: [{
+        name: "resetView",
+        title: "Reset axes",
+        icon: Plotly.Icons.home,
+        click: () => resetView(),
+    }],
+};
 
 /**
  * Draws the main plot from scratch with newPlot (not react) so switching
@@ -325,8 +343,9 @@ function attachPlotHandlers() {
 function drawMainPlot(traces) {
     // purge wipes the stored layout (axis ranges, range slider, WebGL context);
     // newPlot alone keeps the previous ranges when the new data is empty.
+    cancelRangeAnim();  // its frames would otherwise land on the new plot
     Plotly.purge(plotsDiv);
-    Plotly.newPlot(plotsDiv, traces, mainLayout(), plotsInit.config);
+    Plotly.newPlot(plotsDiv, traces, mainLayout(), mainPlotConfig);
     attachPlotHandlers();
 }
 function drawSparkPlot(traces) {
@@ -478,11 +497,14 @@ function updateCoordGraphs() {
 // Plotly delivers plotly_relayout asynchronously (after this call returns), so
 // we hold updateLock until the relayout settles — otherwise the autofollow
 // handler would mistake our own snap-back for a user pan and disable following.
+// Snaps without animating (live follow, source switch); see animateRanges for
+// the animated window change / reset.
 function updateRange() {
     const ms = activeSession().measurements;
     if (ms.length === 0) {
         return;
     }
+    cancelRangeAnim();
     const { ts: latest } = ms[ms.length - 1];
     const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
     const latestDiff = new Date(latest.getTime() - (seconds * 1000));
@@ -492,6 +514,141 @@ function updateRange() {
         .catch(() => {})
         .finally(() => { updateLock = false; });
 }
+
+// ---- Animated range changes (time-window change, reset) ---------------------
+// See js/animate.js for why this is hand-rolled rather than Plotly.animate.
+const RANGE_ANIM_MS = 400;
+
+/** Stops a running range animation, leaving the axes where it got to. */
+function cancelRangeAnim() {
+    if (rangeAnim) {
+        rangeAnim.cancel();
+        rangeAnim = null;
+    }
+}
+
+/**
+ * The trailing display window ending at the newest reading, in Plotly's linear
+ * (ms) units for the x axis. Re-evaluated every frame, so a reading that
+ * arrives mid-animation moves the target with it.
+ * Note: Plotly maps Date objects by their local-time fields, so this must use
+ * the axis's own d2l rather than Date#getTime (they differ by the UTC offset).
+ * @returns {[number, number] | null} null when there's no data
+ */
+function trailingWindowL() {
+    const ms = activeSession().measurements;
+    if (ms.length === 0) {
+        return null;
+    }
+    const latest = plotsDiv._fullLayout.xaxis.d2l(ms[ms.length - 1].ts);
+    const seconds = timeRanges[settings.displayWindow] ?? timeRanges["1h"];
+    return [latest - seconds * 1000, latest];
+}
+
+/**
+ * Where `autorange: true` would put each y axis (over all of its visible
+ * traces' data, as Plotly does), keyed by layout name ("yaxis", "yaxis2", ...).
+ * Axes with no data are omitted.
+ * @returns {Record<string, [number, number]>}
+ */
+function yAutoRangeTargets() {
+    /** @type {Record<string, ArrayLike<number>[]>} */
+    const byAxis = {};
+    for (const tr of plotsDiv._fullData) {
+        if (tr.visible !== true) {
+            continue;
+        }
+        const name = "yaxis" + tr.yaxis.slice(1);  // "y2" -> "yaxis2"
+        (byAxis[name] ??= []).push(tr.y);
+    }
+    /** @type {Record<string, [number, number]>} */
+    const out = {};
+    for (const [name, arrays] of Object.entries(byAxis)) {
+        const ext = dataExtent(arrays);
+        if (ext) {
+            out[name] = plotlyAutoRange(ext);
+        }
+    }
+    return out;
+}
+
+/**
+ * Animates the given axes from their current ranges to their targets. Holds
+ * updateLock for the whole animation so the autofollow handler doesn't take
+ * our per-frame relayouts for user pans, and releases it once the last frame
+ * has settled. Starting a new animation (or snapping via updateRange) cancels
+ * the previous one.
+ * @param {Record<string, [number, number] | (() => [number, number] | null)>} targets
+ *   per layout axis name, in linear units; a function is re-evaluated per frame
+ * @param {object} [finalUpdate] relayout applied after the last frame (e.g. to
+ *   restore autorange)
+ */
+function animateRanges(targets, finalUpdate) {
+    cancelRangeAnim();
+    const fl = plotsDiv._fullLayout;
+    const names = Object.keys(targets);
+    /** @type {Record<string, [number, number]>} */
+    const from = {};
+    for (const n of names) {
+        from[n] = [fl[n].r2l(fl[n].range[0]), fl[n].r2l(fl[n].range[1])];
+    }
+    const frame = p => {
+        const upd = {};
+        for (const n of names) {
+            const t = typeof targets[n] === "function" ? targets[n]() : targets[n];
+            if (t) {
+                const [a, b] = lerpRange(from[n], t, p);
+                upd[`${n}.range`] = [fl[n].l2r(a), fl[n].l2r(b)];
+            }
+        }
+        return Plotly.relayout(plotsDiv, upd);
+    };
+    updateLock = true;
+    const anim = animate(prefersReducedMotion() ? 0 : RANGE_ANIM_MS, frame);
+    rangeAnim = anim;
+    anim.done
+        .then(completed => {
+            if (completed && finalUpdate) {
+                return Plotly.relayout(plotsDiv, finalUpdate);
+            }
+        })
+        .catch(() => {})
+        .finally(() => {
+            // Release the lock unless a newer animation has taken it over.
+            if (rangeAnim === anim) {
+                rangeAnim = null;
+            }
+            if (!rangeAnim) {
+                updateLock = false;
+            }
+        });
+}
+
+/**
+ * Double-click / "Reset axes": animate back to the trailing window with every
+ * y axis autoranged, then hand the y axes back to Plotly's autorange so they
+ * keep fitting new data. Resumes following the newest reading.
+ */
+function resetView() {
+    autofollow = true;
+    /** @type {Record<string, any>} */
+    const targets = yAutoRangeTargets();
+    const finalUpdate = {};
+    for (const k of Object.keys(plotsDiv._fullLayout)) {
+        if (/^yaxis\d*$/.test(k)) {
+            finalUpdate[`${k}.autorange`] = true;
+        }
+    }
+    if (trailingWindowL()) {
+        targets.xaxis = trailingWindowL;
+    }
+    animateRanges(targets, finalUpdate);
+}
+
+// A user zoom/pan/scroll during an animation takes over immediately. Capture
+// phase, so this runs before Plotly's own drag handling.
+plotsDiv.addEventListener("pointerdown", cancelRangeAnim, true);
+plotsDiv.addEventListener("wheel", cancelRangeAnim, { capture: true, passive: true });
 
 /**
  * Appends one reading to the active plots (raw, plus the overlay if enabled).
@@ -997,7 +1154,9 @@ function handleReading(id, json) {
         if (newSpark) {
             updateSparks();
         }
-        if (autofollow) {
+        // A running animation already tracks the newest reading each frame;
+        // snapping here would cancel it.
+        if (autofollow && !rangeAnim) {
             updateRange();
         }
     }
@@ -1541,7 +1700,11 @@ timeSelect.addEventListener("change", ev => {
     settings.displayWindow = ev.target.value;
     saveSettings();
     autofollow = true;
-    updateRange();
+    // Animate to the new trailing window (y is unaffected: autorange spans all
+    // of each trace's data, not just the visible window).
+    if (trailingWindowL()) {
+        animateRanges({ xaxis: trailingWindowL });
+    }
 });
 
 // ----------------------------------------------------------------------------
