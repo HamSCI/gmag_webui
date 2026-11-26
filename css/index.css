@@ -309,10 +309,28 @@ footer {
     flex-direction: column;
     /* Match the small gap the Current Reading box leaves below its header. */
     margin-top: 5px;
-    font-size: 10pt;
     border-radius: var(--right-side-radius);
-    /* Scale smoothly with the drawer transition when the column narrows. */
-    transition: font-size 0.3s ease;
+    /* Size the table text from this element's own width (cqi units below), so
+       the full-precision nT values fit at every breakpoint and drawer state
+       without per-breakpoint font overrides. */
+    container-type: inline-size;
+    /* Total row width in em, from the column budgets below (date 8.8 +
+       4 × 6.0 values + temp 4.1, plus dB/dt 4.4 when shown). Measured in Arial:
+       "12/31/26, 23:59:59" ≈ 8.3em, "-131351.818" ≈ 5.6em. */
+    --row-em: 36.9;
+}
+
+#spreadsheet.show-dbdt {
+    --row-em: 41.3;
+}
+
+#spreadsheet .fixed-table {
+    /* Largest size at which a full row fits: available width (less a
+       scrollbar-gutter allowance) divided by the row's em budget, capped at the
+       original 10pt. It tracks the column width live, including during the
+       drawer transition. */
+    font-size: clamp(6pt, (100cqi - 16px) / var(--row-em), 10pt);
+    font-variant-numeric: tabular-nums;
 }
 
 table {
@@ -360,11 +378,30 @@ table {
     table-layout: fixed;
 }
 
-/* Keep the timestamp on one line; the remaining columns share the rest. */
-.fixed-head th:first-child,
-.scrolling td:first-child {
-    width: 25%;
+/* Column widths are proportional to each column's em budget (see --row-em on
+   #spreadsheet) so every column gets the room its widest content needs. With
+   dB/dt hidden the widths sum to < 100% and the fixed layout scales them up
+   proportionally, which --row-em accounts for. Header and body rows are
+   separate tables, so th and td must get identical widths to stay aligned. */
+.fixed-head th,
+.scrolling td {
     white-space: nowrap;
+}
+.fixed-head th:nth-child(1),
+.scrolling td:nth-child(1) {
+    width: 21.3%;   /* 8.8 / 41.3 */
+}
+.fixed-head th:nth-child(n+2):nth-child(-n+5),
+.scrolling td:nth-child(n+2):nth-child(-n+5) {
+    width: 14.5%;   /* 6.0 / 41.3: H, E, Z, Mag */
+}
+.fixed-head th:nth-child(6),
+.scrolling td:nth-child(6) {
+    width: 9.9%;    /* 4.1 / 41.3: Temp */
+}
+.fixed-head th:nth-child(7),
+.scrolling td:nth-child(7) {
+    width: 10.7%;   /* 4.4 / 41.3: dB/dt */
 }
 
 /* dB/dt column (issue #29): shown only when "Show dB/dt" is enabled. */
@@ -375,7 +412,8 @@ table {
 thead th {
     background-color: var(--surface-header-bg);
     color: var(--surface-header-fg);
-    padding: 6px;
+    /* No horizontal padding: the column em budgets already include spacing. */
+    padding: 6px 0;
 }
 
 /* Click-to-sort headers. Only the active column shows a direction caret (driven
@@ -401,7 +439,7 @@ thead th[aria-sort="descending"]::after {
 
 td {
     text-align: center;
-    padding: 2px;
+    padding: 2px 0;
 }
 
 /* tbody tr:hover {
@@ -973,24 +1011,13 @@ td {
     .layout.config-open #data .btn-primary.sm {
         padding: 4px 6px;
     }
-    /* Shrink the spreadsheet type and trim cell padding so the timestamp and
-       the ~9-char nT values fit their columns without spilling. */
-    .layout.config-open #spreadsheet {
-        font-size: 7.5pt;
-    }
+    /* Trim cell padding in the narrowed column. (The spreadsheet text itself
+       scales to the column width; see #spreadsheet .fixed-table.) */
     .layout.config-open #spreadsheet td {
         padding: 1px 0;
     }
     .layout.config-open #spreadsheet thead th {
         padding: 3px 0;
-    }
-}
-
-/* Tablet widths: smaller spreadsheet text so the value columns (up to 7 with
-   dB/dt) don't run together in the fixed-width 500px data column. */
-@media (max-width: 1100px) {
-    #spreadsheet {
-        font-size: 8.5pt;
     }
 }
 

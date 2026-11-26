@@ -200,3 +200,11 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Nature of Contribution**: Code generation, bug fixes, tests, documentation
 - **Human Review Status**: Reviewed and verified (reviewed and accepted by maintainer; merged in #35, released as v0.1.2)
 - **Git Hash**: 9201f74
+
+## [2026-11-25 21:00 EST]
+- **Tool**: Claude (Anthropic), claude-opus-5-5
+- **Session Purpose**: Fix text overflow in the dashboard spreadsheet when magnetometer values are large (e.g. ~121,638 nT E / ~131,352 nT Mag from the live test source), keeping full 3-decimal precision.
+- **Sections/Files Affected**: css/index.css (#spreadsheet: container-query font sizing via cqi with --row-em budget, switched by .show-dbdt; per-column widths proportional to measured content; tabular-nums; removed horizontal cell/header padding; removed the 7.5pt config-open and 8.5pt ≤1100px spreadsheet font-size overrides)
+- **Nature of Contribution**: Bug fix (CSS)
+- **Human Review Status**: Reviewed and verified (headless Chromium against the live feed at 1920/1280/1024/820/768 widths, dB/dt on/off, config drawer open: no cell overflow, header/body columns aligned; 37/37 tests pass)
+- **Git Hash**: [fill in after committing]
