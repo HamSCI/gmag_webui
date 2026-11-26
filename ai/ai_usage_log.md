@@ -207,4 +207,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: css/index.css (#spreadsheet: container-query font sizing via cqi with --row-em budget, switched by .show-dbdt; per-column widths proportional to measured content; tabular-nums; removed horizontal cell/header padding; removed the 7.5pt config-open and 8.5pt ≤1100px spreadsheet font-size overrides)
 - **Nature of Contribution**: Bug fix (CSS)
 - **Human Review Status**: Reviewed and verified (headless Chromium against the live feed at 1920/1280/1024/820/768 widths, dB/dt on/off, config drawer open: no cell overflow, header/body columns aligned; 37/37 tests pass)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: b8bc0fc
