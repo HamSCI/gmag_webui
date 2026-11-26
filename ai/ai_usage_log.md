@@ -231,4 +231,4 @@ Required per University of Scranton AI Policy, HamSCI Generative AI Use Agreemen
 - **Sections/Files Affected**: css/index.css (new theme-constant --sheet-head-bg/-fg/-hover tokens in :root; .fixed-head, thead th, and thead th[data-sort]:hover use them; :has() rule extends the hover color into the header's scrollbar gutter when the last visible column — dB/dt or Temp — is hovered; light-theme comment updated)
 - **Nature of Contribution**: Bug fix / style (CSS)
 - **Human Review Status**: Reviewed and verified (headless Chromium screenshots in dark and light themes with dB/dt on and off: gutter matches the hovered label, non-last hovers leave it unchanged, header identical across themes; 37/37 tests pass)
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 1c21bfa
